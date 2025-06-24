@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.vscode/
+backend/static/wallpapers/*
+!backend/static/wallpapers/default.jpg
+*.log
+.DS_Store
+Thumbs.db
+# Python cache
+__pycache__/
+*.pyc
+# IDE
+.idea/
+# OS
+*.swp
+dist_electron/
+public/
+backend/.venv/
+backend/app.spec
+backend/build/
+backend/app.exe
+wallpaper_hoster/WallpaperHosterLively/bin
+wallpaper_hoster/WallpaperHosterLively/obj
+wallpaper_hoster/WallpaperHosterLively/out
+
