@@ -14,6 +14,7 @@ declare global {
     version?: string;
     port?: string;
     host?: string;
+    enableLive2D?: boolean;
   }
   interface Window {
     electron: ElectronAPI;

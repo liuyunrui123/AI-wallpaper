@@ -12,6 +12,7 @@ process.chdir(process.resourcesPath);
 let desktopHwnd = 0;
 // 读取wallpaper_config.json配置自动设置环境变量
 const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
+let enableLive2D = false;
 if (fs.existsSync(configPath)) {
     try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -27,6 +28,9 @@ if (fs.existsSync(configPath)) {
         }
         if (config.FLASK_API_HOST) {
             process.env.FLASK_API_HOST = String(config.FLASK_API_HOST);
+        }
+        if (typeof config.ENABLE_LIVE2D !== 'undefined') {
+            enableLive2D = !!config.ENABLE_LIVE2D;
         }
     } catch (e) {
         console.error('读取wallpaper_config.json失败:', e);
@@ -312,6 +316,8 @@ if (!gotTheLock) {
             createWindow();
         }
         createTray();
+        // 注入 enableLive2D 到渲染进程
+        ipcMain.handle('get-enable-live2d', () => enableLive2D);
     });
     app.on('will-quit', () => {
         globalShortcut.unregisterAll();

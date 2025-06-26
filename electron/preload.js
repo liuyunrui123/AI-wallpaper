@@ -12,7 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     version: pkg.version,
     port: process.env.FLASK_API_PORT || '9000',
     host: process.env.FLASK_API_HOST || 'localhost',
-    exitWallpaper: () => ipcRenderer.send('exit-wallpaper')
+    exitWallpaper: () => ipcRenderer.send('exit-wallpaper'),
+    enableLive2D: undefined
+});
+
+// 获取 enableLive2D 配置
+ipcRenderer.invoke('get-enable-live2d').then(val => {
+    window.electronAPI.enableLive2D = val;
 });
 
 contextBridge.exposeInMainWorld('electron', {

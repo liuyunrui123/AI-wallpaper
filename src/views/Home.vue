@@ -23,6 +23,7 @@
     <div v-if="backendError" class="loading">{{ backendError }}</div>
     <div v-else-if="!wallpaperUrl" class="loading">正在加载壁纸...</div>
     <div v-if="!isWallpaperMode" class="exit-btn" @click="exitWallpaper">退出壁纸</div>
+    <div v-if="enableLive2D" id="live2d-container"></div>
   </div>
 </template>
 
@@ -56,6 +57,8 @@ let isWallpaperMode = false;
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isWallpaperMode) {
   isWallpaperMode = true;
 }
+
+let enableLive2D = ref(false);
 
 export default defineComponent({
   name: 'Home',
@@ -175,6 +178,41 @@ export default defineComponent({
         // 通知后端前端已准备好接收推送
         socket.emit('ready_for_push');
       });
+      // 等待 enableLive2D 注入
+      let tryCount = 0;
+      while (typeof window.electronAPI === 'undefined' || typeof window.electronAPI.enableLive2D === 'undefined') {
+        await new Promise(res => setTimeout(res, 50));
+        tryCount++;
+        if (tryCount > 40) break; // 最多等2秒
+      }
+      enableLive2D.value = !!window.electronAPI?.enableLive2D;
+      // Live2D 虚拟角色加载
+      if (enableLive2D.value && !document.getElementById('live2d-script')) {
+        const script = document.createElement('script');
+        script.id = 'live2d-script';
+        script.src = 'https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js';
+        script.onload = () => {
+          // @ts-ignore
+          if (window.L2Dwidget) {
+            // @ts-ignore
+            window.L2Dwidget.init({
+              model: {
+                jsonPath: 'https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json',
+              },
+              display: {
+                position: 'right',
+                width: 180,
+                height: 320,
+                hOffset: 40,
+                vOffset: 0
+              },
+              mobile: { show: true },
+              react: { opacityDefault: 0.8, opacityOnHover: 1 }
+            });
+          }
+        };
+        document.body.appendChild(script);
+      }
     });
     onUnmounted(() => {
       frontendLog('onUnmounted 触发');
@@ -184,7 +222,7 @@ export default defineComponent({
       }
     });
 
-    return { wallpaperUrl, prompt, weather, temperature, humidity, windPower, province, city, county, timeMood, isWallpaperMode, backend_version, coreVersion, backendError, exitWallpaper};
+    return { wallpaperUrl, prompt, weather, temperature, humidity, windPower, province, city, county, timeMood, isWallpaperMode, backend_version, coreVersion, backendError, exitWallpaper, enableLive2D };
   }
 });
 </script>
@@ -196,6 +234,13 @@ export default defineComponent({
   margin: 0;
   padding: 0;
   overflow: hidden;
+}
+#live2d-container {
+  position: fixed;
+  right: 40px;
+  bottom: 0;
+  z-index: 20;
+  pointer-events: none;
 }
 .info-panel {
   position: absolute;
