@@ -85,22 +85,30 @@ class WallpaperHosterLively
             return;
         }
         IntPtr hwnd = (IntPtr)Convert.ToInt32(args[0]);
+        int x = 0, y = 0, width = 0, height = 0;
+        if (args.Length >= 5)
+        {
+            int.TryParse(args[1], out x);
+            int.TryParse(args[2], out y);
+            int.TryParse(args[3], out width);
+            int.TryParse(args[4], out height);
+        }
         IntPtr workerw = CreateWorkerW();
         if (workerw == IntPtr.Zero)
         {
             Console.WriteLine("未能找到 WorkerW，挂载失败。");
             return;
         }
-
         SetParent(hwnd, workerw);
-
-        // 可选：调整壁纸窗口大小为 WorkerW 区域
-        if (GetWindowRect(workerw, out RECT rect))
+        if (width > 0 && height > 0)
         {
-            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, rect.Right - rect.Left, rect.Bottom - rect.Top, 0x0010); // SWP_NOZORDER
+            SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height, 0x0010); // SWP_NOZORDER
         }
-
+        else if (GetWindowRect(workerw, out RECT rect))
+        {
+            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, rect.Right - rect.Left, rect.Bottom - rect.Top, 0x0010);
+        }
         ShowWindow(hwnd, 5); // SW_SHOW
-        Console.WriteLine($"[WallpaperHosterLively] hwnd:{hwnd} 挂载到WorkerW句柄: 0x{workerw.ToInt64():X}");
+        Console.WriteLine($"[WallpaperHosterLively] hwnd:{hwnd} 挂载到WorkerW句柄: 0x{workerw.ToInt64():X} 区域: x={x},y={y},w={width},h={height}");
     }
 }

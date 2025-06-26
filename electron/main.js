@@ -37,6 +37,10 @@ let flaskProcess = null;
 let mainWindow = null;
 let tray = null;
 
+// 多屏壁纸窗口管理
+const { screen } = require('electron');
+let wallpaperWindows = {};
+
 function stopFlaskSync(callback) {
     if (flaskProcess) {
         if (process.platform === 'win32') {
@@ -107,7 +111,11 @@ function startFlask() {
 function getNativeHWND(win) {
     // Electron 15+ 可用 win.getNativeWindowHandle()
     const buf = win.getNativeWindowHandle();
-    return buf.readInt32LE();
+    if (process.arch === 'x64') {
+        return buf.readBigInt64LE(0).toString();
+    } else {
+        return buf.readInt32LE(0).toString();
+    }
 }
 
 function setAsWallpaper(win) {
@@ -140,6 +148,74 @@ function setAsWallpaper(win) {
             logToAll('WallpaperHosterLively 错误: ' + stderr, 'ERROR', 'electron');
             console.error('WallpaperHosterLively 错误:', stderr);
         }
+    });
+}
+
+// 多屏壁纸窗口管理
+function setAsWallpaperMulti(win, display) {
+    const hwnd = getNativeHWND(win);
+    const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'WallpaperHosterLively', 'out', 'WallpaperHosterLively.exe');
+    if (!fs.existsSync(exePath)) {
+        logToAll('wallpaper host lively not found: ' + exePath, 'ERROR', 'electron');
+        return;
+    }
+    const { x, y, width, height } = display.bounds;
+    spawn(exePath, [hwnd, x, y, width, height], { detached: true, stdio: 'ignore' });
+}
+
+function createWallpaperWindow(display) {
+    const win = new BrowserWindow({
+        x: display.bounds.x,
+        y: display.bounds.y,
+        width: display.bounds.width,
+        height: display.bounds.height,
+        frame: false,
+        transparent: true,
+        skipTaskbar: true,
+        show: false,
+        resizable: false,
+        movable: false,
+        focusable: false,
+        alwaysOnTop: false,
+        hasShadow: false,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            enableRemoteModule: false,
+        }
+    });
+    if (process.env.NODE_ENV === 'development') {
+        win.loadURL('http://localhost:8080');
+    } else {
+        win.loadFile('dist/index.html').catch(err => {
+            console.error('load index.html faild:', err);
+        });
+    }
+    win.once('ready-to-show', () => {
+        win.showInactive();
+        setTimeout(() => {
+            setAsWallpaperMulti(win, display);
+            win.maximize();
+            win.setIgnoreMouseEvents(true, { forward: true });
+            win.setAlwaysOnTop(false);
+            win.setFocusable(false);
+        }, 50);
+    });
+    win.on('closed', () => {
+        Object.keys(wallpaperWindows).forEach(id => {
+            if (wallpaperWindows[id] === win) delete wallpaperWindows[id];
+        });
+    });
+    return win;
+}
+
+function setupAllWallpapers() {
+    Object.values(wallpaperWindows).forEach(win => {
+        if (!win.isDestroyed()) win.close();
+    });
+    wallpaperWindows = {};
+    screen.getAllDisplays().forEach(display => {
+        wallpaperWindows[display.id] = createWallpaperWindow(display);
     });
 }
 
@@ -224,11 +300,16 @@ if (!gotTheLock) {
 } else {
     app.whenReady().then(() => {
         startFlask();
-        createWindow();
         if (process.env.WALLPAPER_MODE === '1') {
+            setupAllWallpapers();
+            screen.on('display-added', setupAllWallpapers);
+            screen.on('display-removed', setupAllWallpapers);
+            screen.on('display-metrics-changed', setupAllWallpapers);
             globalShortcut.register('Esc', () => {
                 safeQuit();
             });
+        } else {
+            createWindow();
         }
         createTray();
     });
