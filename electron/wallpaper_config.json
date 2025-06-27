@@ -2,5 +2,5 @@
   "WALLPAPER_MODE": "1",
   "DESKTOP_HWND": 0,
   "FLASK_API_PORT": 9000,
-  "ENABLE_LIVE2D": false
+  "ENABLE_LIVE2D": "0"
 }

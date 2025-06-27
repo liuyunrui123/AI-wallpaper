@@ -29,8 +29,8 @@ if (fs.existsSync(configPath)) {
         if (config.FLASK_API_HOST) {
             process.env.FLASK_API_HOST = String(config.FLASK_API_HOST);
         }
-        if (typeof config.ENABLE_LIVE2D !== 'undefined') {
-            enableLive2D = !!config.ENABLE_LIVE2D;
+        if (config.ENABLE_LIVE2D) {
+            process.env.ENABLE_LIVE2D = config.ENABLE_LIVE2D;
         }
     } catch (e) {
         console.error('读取wallpaper_config.json失败:', e);

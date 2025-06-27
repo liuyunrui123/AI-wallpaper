@@ -58,7 +58,10 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.is
   isWallpaperMode = true;
 }
 
-let enableLive2D = ref(false);
+let enableLive2D = false;
+if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.enableLive2D) {
+  enableLive2D = true;
+}
 
 export default defineComponent({
   name: 'Home',
@@ -178,16 +181,9 @@ export default defineComponent({
         // 通知后端前端已准备好接收推送
         socket.emit('ready_for_push');
       });
-      // 等待 enableLive2D 注入
-      let tryCount = 0;
-      while (typeof window.electronAPI === 'undefined' || typeof window.electronAPI.enableLive2D === 'undefined') {
-        await new Promise(res => setTimeout(res, 50));
-        tryCount++;
-        if (tryCount > 40) break; // 最多等2秒
-      }
-      enableLive2D.value = !!window.electronAPI?.enableLive2D;
+
       // Live2D 虚拟角色加载
-      if (enableLive2D.value && !document.getElementById('live2d-script')) {
+      if (enableLive2D && !document.getElementById('live2d-script')) {
         const script = document.createElement('script');
         script.id = 'live2d-script';
         script.src = 'https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js';
