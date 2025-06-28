@@ -58,7 +58,7 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.is
   isWallpaperMode = true;
 }
 
-let enableLive2D = false;
+let enableLive2D = true;
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.enableLive2D) {
   enableLive2D = true;
 }
@@ -254,52 +254,53 @@ export default defineComponent({
             Live2DModel.from(getModelPath('./static/live2d/Haru/Haru.model3.json'))
             // Live2DModel.from(getModelPath('./static/live2d/Mao/Mao.model3.json'))
               .then((model: any) => {
-                console.log('Live2D v3 model loaded:', model);
+                console.log('Live2D v3 model loaded:', model); 
+                // console.log('Live2D v3 model internal:', model.internalModel);
 
                 // 禁用所有自动动画（Live2D v3方式）
-                if (model.internalModel) {
-                  const internal = model.internalModel;
+                // if (model.internalModel) {
+                //   const internal = model.internalModel;
 
-                  // 禁用眨眼 - v3方式
-                  try {
-                    if (internal.eyeBlink) {
-                      // 尝试不同的禁用方法
-                      if (typeof internal.eyeBlink.setEnable === 'function') {
-                        internal.eyeBlink.setEnable(false);
-                      } else {
-                        // v3可能使用不同的方法
-                        internal.eyeBlink = null;
-                      }
-                      console.log('Eye blink disabled');
-                    }
-                  } catch (e) {
-                    console.log('Could not disable eye blink:', e);
-                  }
+                //   // 禁用眨眼 - v3方式
+                //   try {
+                //     if (internal.eyeBlink) {
+                //       // 尝试不同的禁用方法
+                //       if (typeof internal.eyeBlink.setEnable === 'function') {
+                //         internal.eyeBlink.setEnable(false);
+                //       } else {
+                //         // v3可能使用不同的方法
+                //         internal.eyeBlink = null;
+                //       }
+                //       console.log('Eye blink disabled');
+                //     }
+                //   } catch (e) {
+                //     console.log('Could not disable eye blink:', e);
+                //   }
 
-                  // 禁用呼吸 - v3方式
-                  try {
-                    if (internal.breath) {
-                      if (typeof internal.breath.setEnable === 'function') {
-                        internal.breath.setEnable(false);
-                      } else {
-                        internal.breath = null;
-                      }
-                      console.log('Breath disabled');
-                    }
-                  } catch (e) {
-                    console.log('Could not disable breath:', e);
-                  }
+                //   // 禁用呼吸 - v3方式
+                //   try {
+                //     if (internal.breath) {
+                //       if (typeof internal.breath.setEnable === 'function') {
+                //         internal.breath.setEnable(false);
+                //       } else {
+                //         internal.breath = null;
+                //       }
+                //       console.log('Breath disabled');
+                //     }
+                //   } catch (e) {
+                //     console.log('Could not disable breath:', e);
+                //   }
 
-                  // 停止所有动画
-                  try {
-                    if (internal.motionManager) {
-                      internal.motionManager.stopAllMotions();
-                      console.log('All motions stopped');
-                    }
-                  } catch (e) {
-                    console.log('Could not stop motions:', e);
-                  }
-                }
+                //   // 停止所有动画
+                //   try {
+                //     if (internal.motionManager) {
+                //       internal.motionManager.stopAllMotions();
+                //       console.log('All motions stopped');
+                //     }
+                //   } catch (e) {
+                //     console.log('Could not stop motions:', e);
+                //   }
+                // }
 
                 // 设置模型位置和大小
                 model.anchor.set(0.5, 1);
@@ -314,57 +315,6 @@ export default defineComponent({
                 model.scale.set(scale);
 
                 app.stage.addChild(model);
-
-                // 添加鼠标跟踪
-                let mouseTrackingLogged = false;
-                const onMouseMove = (event: MouseEvent) => {
-                  const rect = canvas.getBoundingClientRect();
-                  const x = (event.clientX - rect.left) / rect.width;
-                  const y = (event.clientY - rect.top) / rect.height;
-
-                  // 转换为Live2D坐标
-                  const liveX = (x - 0.5) * 2;
-                  const liveY = (y - 0.5) * -2;
-
-                  // 设置眼球跟踪参数 - 兼容v2和v3
-                  if (model.internalModel && model.internalModel.coreModel) {
-                    const core = model.internalModel.coreModel;
-                    try {
-                      // 尝试v3 API
-                      if (typeof core.setParameterValueById === 'function') {
-                        core.setParameterValueById('ParamAngleX', liveX * 30);
-                        core.setParameterValueById('ParamAngleY', liveY * 30);
-                        core.setParameterValueById('ParamEyeBallX', liveX);
-                        core.setParameterValueById('ParamEyeBallY', liveY);
-                      }
-                      // 尝试v2 API
-                      else if (typeof core.setParamFloat === 'function') {
-                        core.setParamFloat('PARAM_ANGLE_X', liveX * 30);
-                        core.setParamFloat('PARAM_ANGLE_Y', liveY * 30);
-                        core.setParamFloat('PARAM_EYE_BALL_X', liveX);
-                        core.setParamFloat('PARAM_EYE_BALL_Y', liveY);
-                      }
-                      // 尝试其他可能的API
-                      else if (model.setParam) {
-                        model.setParam('PARAM_ANGLE_X', liveX * 30);
-                        model.setParam('PARAM_ANGLE_Y', liveY * 30);
-                        model.setParam('PARAM_EYE_BALL_X', liveX);
-                        model.setParam('PARAM_EYE_BALL_Y', liveY);
-                      }
-
-                      // 只在第一次成功时显示消息
-                      if (!mouseTrackingLogged) {
-                        console.log('Mouse tracking active');
-                        mouseTrackingLogged = true;
-                      }
-                    } catch (e) {
-                      console.error('Parameter setting failed:', e);
-                    }
-                  }
-                };
-
-                document.addEventListener('mousemove', onMouseMove);
-
                 console.log('Live2D v3 model loaded successfully with mouse tracking');
               })
               .catch((error: any) => {
@@ -373,7 +323,6 @@ export default defineComponent({
           }
         } catch (error) {
           console.error('Failed to load Live2D scripts:', error);
-          //fallbackToV2();
         }
       }
 
