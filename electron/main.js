@@ -39,6 +39,7 @@ if (fs.existsSync(configPath)) {
 
 let flaskProcess = null;
 let mainWindow = null;
+let settingsWindow = null;
 let tray = null;
 
 // 多屏壁纸窗口管理
@@ -80,6 +81,49 @@ function restartApp() {
         app.relaunch();
         app.exit(0);
     });
+}
+
+function openSettingsWindow() {
+    // 如果设置窗口已经存在，则聚焦到该窗口
+    if (settingsWindow) {
+        settingsWindow.focus();
+        return;
+    }
+
+    // 创建设置窗口
+    settingsWindow = new BrowserWindow({
+        width: 600,
+        height: 1000,
+        title: 'AI Wallpaper 设置',
+        icon: path.join(__dirname, '../public/icon.ico'),
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
+        },
+        //autoHideMenuBar: true,
+        resizable: true,
+        minimizable: true,
+        maximizable: true,
+        closable: true
+    });
+
+    // 加载设置页面
+    if (process.env.NODE_ENV === 'development') {
+        settingsWindow.loadURL('http://localhost:8080/#/settings');
+    } else {
+        settingsWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+            hash: 'settings'
+        });
+    }
+
+    // 窗口关闭时清理引用
+    settingsWindow.on('closed', () => {
+        settingsWindow = null;
+    });
+
+    console.log('设置窗口已打开');
+    logToAll('用户打开设置窗口', 'INFO', 'electron');
 }
 
 function startFlask() {
@@ -299,6 +343,8 @@ function createTray() {
     try {
         tray = new Tray(iconPath);
         const contextMenu = Menu.buildFromTemplate([
+            { label: '设置', click: () => { openSettingsWindow(); } },
+            { type: 'separator' },
             { label: '重启程序', click: () => { restartApp(); } },
             { type: 'separator' },
             { label: '退出壁纸', click: () => { safeQuit(); } }
@@ -381,6 +427,14 @@ ipcMain.on('exit-wallpaper', () => {
 // 支持前端通过IPC重启
 ipcMain.on('restart-app', () => {
     restartApp();
+});
+
+// 支持前端通过IPC关闭当前窗口
+ipcMain.on('close-current-window', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+        window.close();
+    }
 });
 
 // 前端日志聚合（前端通过IPC发送日志）

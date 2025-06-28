@@ -21,7 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         const resourcesPath = process.resourcesPath || path.join(__dirname, '../resources');
         return path.join(resourcesPath, relativePath).replace(/\\/g, '/');
     },
-    readLive2DConfig: () => ipcRenderer.invoke('read-live2d-config')
+    readLive2DConfig: () => ipcRenderer.invoke('read-live2d-config'),
+    closeWindow: () => ipcRenderer.send('close-current-window')
 });
 
 contextBridge.exposeInMainWorld('electron', {
