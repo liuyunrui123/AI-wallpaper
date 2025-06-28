@@ -325,6 +325,23 @@ if (!gotTheLock) {
         createTray();
         // 注入 enableLive2D 到渲染进程
         ipcMain.handle('get-enable-live2d', () => enableLive2D);
+
+        // 读取Live2D配置文件
+        ipcMain.handle('read-live2d-config', () => {
+            try {
+                const configPath = path.join(process.resourcesPath, 'static', 'live2d', 'models.json');
+                if (fs.existsSync(configPath)) {
+                    const configData = fs.readFileSync(configPath, 'utf-8');
+                    return JSON.parse(configData);
+                } else {
+                    console.error('Live2D config file not found:', configPath);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Failed to read Live2D config:', error);
+                return null;
+            }
+        });
     });
     app.on('will-quit', () => {
         globalShortcut.unregisterAll();

@@ -19,7 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         // 获取资源目录路径
         const resourcesPath = process.resourcesPath || path.join(__dirname, '../resources');
         return path.join(resourcesPath, relativePath).replace(/\\/g, '/');
-    }
+    },
+    readLive2DConfig: () => ipcRenderer.invoke('read-live2d-config')
 });
 
 contextBridge.exposeInMainWorld('electron', {

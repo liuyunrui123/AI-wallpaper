@@ -58,7 +58,7 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.is
   isWallpaperMode = true;
 }
 
-let enableLive2D = true;
+let enableLive2D = false;
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.enableLive2D) {
   enableLive2D = true;
 }
@@ -212,47 +212,146 @@ export default defineComponent({
             const PIXI = (window as any).PIXI || require('pixi.js');
             const { Live2DModel } = require('pixi-live2d-display');
 
+            // Live2D模型管理器
+            class Live2DModelManager {
+              private models: any[] = [];
+              private settings: any = {};
+              private defaultModel: string = "haru";
+
+              async loadConfig() {
+                try {
+                  // 检查是否在Electron环境中
+                  if (!(process.env.NODE_ENV === 'development') && (window as any).electronAPI) {
+                    // 打包后的Electron环境，使用IPC读取文件
+                    const config = await (window as any).electronAPI.readLive2DConfig();
+                    if (config) {
+                      this.models = config.models || [];
+                      this.settings = config.settings || {};
+                      this.defaultModel = config.default || 'haru';
+                      console.log('Live2D models config loaded via IPC:', this.models);
+                      return config;
+                    }
+                  } else {
+                    // 开发环境，使用fetch
+                    const configPath = './static/live2d/models.json';
+                    const response = await fetch(configPath);
+                    const config = await response.json();
+                    this.models = config.models || [];
+                    this.settings = config.settings || {};
+                    this.defaultModel = config.default || 'haru';
+                    console.log('Live2D models config loaded via fetch:', this.models);
+                    return config;
+                  }
+                } catch (error) {
+                  console.error('Failed to load Live2D models config:', error);
+                  return null;
+                }
+              }
+
+              getModelPath(modelPath: string) {
+                // 检查是否在Electron环境中
+                if (!(process.env.NODE_ENV === 'development')) {
+                  // 使用自定义协议
+                  const resourcePath = modelPath.replace('./', '');
+                  const customProtocolPath = `app-resource://${resourcePath}`;
+                  return customProtocolPath;
+                }
+                // 开发环境或Web环境，使用相对路径
+                return modelPath;
+              }
+
+              getModelById(id: string) {
+                return this.models.find(model => model.id === id);
+              }
+
+              getDefaultModel() {
+                const config = this.models.find(model => model.id === this.defaultModel) || this.models[0];
+                return config;
+              }
+
+              getSettings() {
+                return this.settings;
+              }
+            }
+
             // 注册Ticker
             Live2DModel.registerTicker(PIXI.Ticker);
 
+            // 创建模型管理器并加载配置
+            const modelManager = new Live2DModelManager();
+            const config = await modelManager.loadConfig();
+            if (!config) {
+              console.error('Failed to load Live2D models config');
+              return;
+            }
+
+            const settings = modelManager.getSettings();
+            const configScale = settings.scale || 0.8;
+
+            // 根据缩放动态调整canvas大小
+            const baseWidth = 240;
+            const baseHeight = 400;
+            const canvasWidth = Math.max(baseWidth, baseWidth * configScale);
+            const canvasHeight = Math.max(baseHeight, baseHeight * configScale);
+
             // 创建PIXI应用
             const app = new PIXI.Application({
-              width: 240,
-              height: 400,
+              width: canvasWidth,
+              height: canvasHeight,
               transparent: true,
               antialias: true
             });
-
+            // 使用配置文件中的position设置canvas位置
+            const position = settings.position || { x: 1.0, y: 1.0 };
+            console.log('Canvas position from config:', position);
             const canvas = app.view;
             canvas.id = 'live2d-canvas';
-            canvas.style.position = 'absolute';
-            canvas.style.right = '0';
-            canvas.style.bottom = '0';
+            canvas.style.position =  'fixed'; //'absolute';
+            // canvas.style.right = '0';
+            // canvas.style.bottom = '0';
+            let transformX = '';
+            let transformY = '';
+
+            // 设置水平位置
+            if (position.x === 0.5) {
+              // 水平居中
+              canvas.style.left = '50%';
+              transformX = 'translateX(-50%)';
+            } else if (position.x < 0.5) {
+              // 左侧
+              const leftPercent = position.x * 100;
+              canvas.style.left = `${leftPercent}%`;
+            } else {
+              // 右侧
+              const rightPercent = (1 - position.x) * 100;
+              canvas.style.right = `${rightPercent}%`;
+            }
+          
+            // 设置垂直位置
+            if (position.y === 0.5) {
+              // 垂直居中
+              canvas.style.top = '50%';
+              transformY = 'translateY(-50%)';
+            } else if (position.y < 0.5) {
+              // 上方
+              const topPercent = position.y * 100;
+              canvas.style.top = `${topPercent}%`;
+            } else {
+              // 下方
+              const bottomPercent = (1 - position.y) * 100;
+              canvas.style.bottom = `${bottomPercent}%`;
+            }
             canvas.style.pointerEvents = 'none';
             container.appendChild(canvas);
 
-            // 获取正确的模型路径
-            const getModelPath = (modelPath: string) => {
-              // 检查是否在Electron环境中
-              if (!(process.env.NODE_ENV === 'development')) {
-                // 使用自定义协议
-                const resourcePath = modelPath.replace('./', '');
-                const customProtocolPath = `app-resource://${resourcePath}`;
-                console.log('Using custom protocol path:', customProtocolPath);
-                return customProtocolPath;
-              }
+            try {
+                // 获取默认模型或指定模型
+                const selectedModel = modelManager.getDefaultModel();
+                if (selectedModel) {
+                  console.log('Loading model:', selectedModel.name);
+                  const modelPath = modelManager.getModelPath('./' + selectedModel.path);
 
-              // 开发环境或Web环境，使用相对路径
-              console.log('Development path:', modelPath);
-              return modelPath;
-            };
-
-            // 加载Live2D v2模型
-            // Live2DModel.from(getModelPath('./static/live2d/shizuku/shizuku.model.json'))
-            // 加载Live2D v3模型
-            // Live2DModel.from(getModelPath('./static/live2d/Wanko/Wanko.model3.json'))
-            Live2DModel.from(getModelPath('./static/live2d/Haru/Haru.model3.json'))
-            // Live2DModel.from(getModelPath('./static/live2d/Mao/Mao.model3.json'))
+                  Live2DModel.from(modelPath)
               .then((model: any) => {
                 console.log('Live2D v3 model loaded:', model); 
                 // console.log('Live2D v3 model internal:', model.internalModel);
@@ -302,17 +401,27 @@ export default defineComponent({
                 //   }
                 // }
 
-                // 设置模型位置和大小
-                model.anchor.set(0.5, 1);
-                model.x = app.screen.width / 2;
-                model.y = app.screen.height;
+                // 使用已加载的配置文件设置
 
-                // 计算合适的缩放
+                // 设置模型锚点和位置
+                if(selectedModel.version === "v2") {
+                  model.anchor.set(0.5, 1.1);
+                } else {
+                  model.anchor.set(0.5, 1.0);
+                }
+                model.x = app.screen.width * 0.5;
+                model.y = app.screen.height * 1.0;
+                const modelScale = 0.95;
                 const scale = Math.min(
-                  app.screen.width / model.width * 0.8,
-                  app.screen.height / model.height * 0.8
+                  app.screen.width / model.width * modelScale,
+                  app.screen.height / model.height * modelScale
                 );
                 model.scale.set(scale);
+
+                console.log('model scale:', {
+                  scale: modelScale,
+                  finalScale: scale
+                });
 
                 app.stage.addChild(model);
                 console.log('Live2D v3 model loaded successfully with mouse tracking');
@@ -320,6 +429,12 @@ export default defineComponent({
               .catch((error: any) => {
                 console.error('Failed to load Live2D v3 model:', error);
               });
+                } else {
+                  console.error('No model found to load');
+                }
+            } catch (error) {
+              console.error('Failed to initialize Live2D:', error);
+            }
           }
         } catch (error) {
           console.error('Failed to load Live2D scripts:', error);

@@ -1,0 +1,53 @@
+{
+  "models": [
+    {
+      "id": "haru",
+      "name": "Haru",
+      "path": "static/live2d/Haru/Haru.model3.json",
+      "version": "v3",
+      "description": "可爱的Haru角色"
+    },
+    {
+      "id": "mao",
+      "name": "Mao",
+      "path": "static/live2d/Mao/Mao.model3.json",
+      "version": "v3",
+      "description": "活泼的Mao角色"
+    },
+    {
+      "id": "wanko",
+      "name": "Wanko",
+      "path": "static/live2d/Wanko/Wanko.model3.json",
+      "version": "v3",
+      "description": "温柔的Wanko角色"
+    },
+    {
+      "id": "shizuku",
+      "name": "Shizuku",
+      "path": "static/live2d/shizuku/shizuku.model.json",
+      "version": "v2",
+      "description": "经典的Shizuku角色"
+    }
+  ],
+  "default": "haru",
+  "settings": {
+    "enableMouseTracking": true,
+    "disableAutoAnimations": true,
+    "scale": 1.0,
+    "position": {
+      "x": 0.95,
+      "y": 1.0
+    }
+  },
+  "_positionExamples": {
+    "bottomRight": { "x": 1.0, "y": 1.0 },
+    "bottomLeft": { "x": 0.0, "y": 1.0 },
+    "bottomCenter": { "x": 0.5, "y": 1.0 },
+    "topRight": { "x": 1.0, "y": 0.0 },
+    "topLeft": { "x": 0.0, "y": 0.0 },
+    "topCenter": { "x": 0.5, "y": 0.0 },
+    "center": { "x": 0.5, "y": 0.5 },
+    "rightCenter": { "x": 1.0, "y": 0.5 },
+    "leftCenter": { "x": 0.0, "y": 0.5 }
+  }
+}
