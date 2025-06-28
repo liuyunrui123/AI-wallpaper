@@ -71,6 +71,17 @@ function safeQuit() {
     });
 }
 
+function restartApp() {
+    console.log('重启应用程序...');
+    logToAll('用户请求重启应用程序', 'INFO', 'electron');
+
+    stopFlaskSync(() => {
+        // 重启应用
+        app.relaunch();
+        app.exit(0);
+    });
+}
+
 function startFlask() {
     const backendExe = path.join(process.resourcesPath, 'backend', 'app.exe');
     if (!fs.existsSync(backendExe)) {
@@ -288,6 +299,8 @@ function createTray() {
     try {
         tray = new Tray(iconPath);
         const contextMenu = Menu.buildFromTemplate([
+            { label: '重启程序', click: () => { restartApp(); } },
+            { type: 'separator' },
             { label: '退出壁纸', click: () => { safeQuit(); } }
         ]);
         tray.setToolTip('AI Wallpaper');
@@ -363,6 +376,11 @@ if (!gotTheLock) {
 // 支持前端通过IPC退出
 ipcMain.on('exit-wallpaper', () => {
     safeQuit();
+});
+
+// 支持前端通过IPC重启
+ipcMain.on('restart-app', () => {
+    restartApp();
 });
 
 // 前端日志聚合（前端通过IPC发送日志）

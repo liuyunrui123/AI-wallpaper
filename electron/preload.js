@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     port: process.env.FLASK_API_PORT || '9000',
     host: process.env.FLASK_API_HOST || 'localhost',
     exitWallpaper: () => ipcRenderer.send('exit-wallpaper'),
+    restartApp: () => ipcRenderer.send('restart-app'),
     enableLive2D: process.env.ENABLE_LIVE2D === '1', // 直接同步注入
     getResourcePath: (relativePath) => {
         // 获取资源目录路径
