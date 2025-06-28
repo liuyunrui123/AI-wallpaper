@@ -13,12 +13,12 @@
 - [x] 显示壁纸
 - [x] 显示实时天气信息
 - [x] 根据时间天气信息生成并刷新对应的壁纸
+- [x] Live2D虚拟角色
 - [ ] 开机自启功能
 - [ ] 独立的菜单窗口
 - [ ] 手动刷新壁纸按钮
 - [ ] 基于LLM分析当前信息自动生成绘图提示词
 - [ ] 动态特效
-- [ ] Live2D虚拟角色
 
 
 ## 项目结构
@@ -57,6 +57,10 @@ AI_Wallpaper
 安装 .NET 9.0: [Download the .NET runtime](https://aka.ms/dotnet-core-applaunch?missing_runtime=true&arch=x64&rid=win-x64&os=win10&apphost_version=9.0.6)
 
 从发布页面下载[release](https://github.com/liuyunrui123/AI_Wallpaper/releases)版本, 启动后会在托盘栏显示一个图标，右键可以退出。
+
+## 配置
+- 主配置文件位于`resources\wallpaper_config.json`
+- live2d的模型配置位于`resources\static\live2d\models.json`
 
 ## 从源码编译
 1. 克隆项目到本地:
