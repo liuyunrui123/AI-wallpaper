@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, protocol } = require('electron');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
@@ -303,6 +303,13 @@ if (!gotTheLock) {
     safeQuit();
 } else {
     app.whenReady().then(() => {
+        // 注册自定义协议来处理资源文件
+        protocol.registerFileProtocol('app-resource', (request, callback) => {
+            const url = request.url.replace('app-resource://', '');
+            const filePath = path.join(process.resourcesPath, url);
+            callback({ path: filePath });
+        });
+
         startFlask();
         if (process.env.WALLPAPER_MODE === '1') {
             setupAllWallpapers();

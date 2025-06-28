@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "axios": "^0.21.1",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10",
     "socket.io-client": "^4.8.1",
     "vue": "^3.0.0",
     "vue-router": "^4.0.0"
@@ -35,6 +37,7 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/static/live2d/**/*",
       "electron/*.js",
       "package.json"
     ],
@@ -50,7 +53,9 @@
       {
         "from": "wallpaper_hoster/WallpaperHosterLively/out",
         "to": "wallpaper_hoster/WallpaperHosterLively/out",
-        "filter": ["!*.pdb"]
+        "filter": [
+          "!*.pdb"
+        ]
       },
       {
         "from": "src/assets/icon.ico",
@@ -59,6 +64,10 @@
       {
         "from": "electron/wallpaper_config.json",
         "to": "wallpaper_config.json"
+      },
+      {
+        "from": "public/static/live2d",
+        "to": "static/live2d"
       }
     ],
     "win": {

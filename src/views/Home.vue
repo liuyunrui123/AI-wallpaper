@@ -182,33 +182,202 @@ export default defineComponent({
         socket.emit('ready_for_push');
       });
 
-      // Live2D 虚拟角色加载
-      if (enableLive2D && !document.getElementById('live2d-script')) {
-        const script = document.createElement('script');
-        script.id = 'live2d-script';
-        script.src = 'https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js';
-        script.onload = () => {
-          // @ts-ignore
-          if (window.L2Dwidget) {
-            // @ts-ignore
-            window.L2Dwidget.init({
-              model: {
-                jsonPath: 'https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json',
-              },
-              display: {
-                position: 'right',
-                width: 180,
-                height: 320,
-                hOffset: 40,
-                vOffset: 0
-              },
-              mobile: { show: true },
-              react: { opacityDefault: 0.8, opacityOnHover: 1 }
-            });
-          }
+      // Live2D v3 虚拟角色加载（使用CDN）
+      if (enableLive2D && !document.getElementById('live2d-canvas')) {
+        // 先加载必要的脚本
+        const loadScript = (src: string): Promise<void> => {
+          return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => resolve();
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
         };
-        document.body.appendChild(script);
+
+        try {
+          // 使用本地文件，避免CDN问题
+          await loadScript('./live2d.min.js');
+          await loadScript('./live2dcubismcore.min.js');
+
+          const container = document.getElementById('live2d-container');
+          if (container) {
+            // 检查Live2D运行时是否加载
+            if (!(window as any).Live2D || !(window as any).Live2DCubismCore) {
+              console.error('Live2D runtime not loaded');
+              return;
+            }
+
+            // 使用项目中的PIXI和Live2D
+            const PIXI = (window as any).PIXI || require('pixi.js');
+            const { Live2DModel } = require('pixi-live2d-display');
+
+            // 注册Ticker
+            Live2DModel.registerTicker(PIXI.Ticker);
+
+            // 创建PIXI应用
+            const app = new PIXI.Application({
+              width: 240,
+              height: 400,
+              transparent: true,
+              antialias: true
+            });
+
+            const canvas = app.view;
+            canvas.id = 'live2d-canvas';
+            canvas.style.position = 'absolute';
+            canvas.style.right = '0';
+            canvas.style.bottom = '0';
+            canvas.style.pointerEvents = 'none';
+            container.appendChild(canvas);
+
+            // 获取正确的模型路径
+            const getModelPath = (modelPath: string) => {
+              // 检查是否在Electron环境中
+              if (!(process.env.NODE_ENV === 'development')) {
+                // 使用自定义协议
+                const resourcePath = modelPath.replace('./', '');
+                const customProtocolPath = `app-resource://${resourcePath}`;
+                console.log('Using custom protocol path:', customProtocolPath);
+                return customProtocolPath;
+              }
+
+              // 开发环境或Web环境，使用相对路径
+              console.log('Development path:', modelPath);
+              return modelPath;
+            };
+
+            // 加载Live2D v2模型
+            // Live2DModel.from(getModelPath('./static/live2d/shizuku/shizuku.model.json'))
+            // 加载Live2D v3模型
+            // Live2DModel.from(getModelPath('./static/live2d/Wanko/Wanko.model3.json'))
+            Live2DModel.from(getModelPath('./static/live2d/Haru/Haru.model3.json'))
+            // Live2DModel.from(getModelPath('./static/live2d/Mao/Mao.model3.json'))
+              .then((model: any) => {
+                console.log('Live2D v3 model loaded:', model);
+
+                // 禁用所有自动动画（Live2D v3方式）
+                if (model.internalModel) {
+                  const internal = model.internalModel;
+
+                  // 禁用眨眼 - v3方式
+                  try {
+                    if (internal.eyeBlink) {
+                      // 尝试不同的禁用方法
+                      if (typeof internal.eyeBlink.setEnable === 'function') {
+                        internal.eyeBlink.setEnable(false);
+                      } else {
+                        // v3可能使用不同的方法
+                        internal.eyeBlink = null;
+                      }
+                      console.log('Eye blink disabled');
+                    }
+                  } catch (e) {
+                    console.log('Could not disable eye blink:', e);
+                  }
+
+                  // 禁用呼吸 - v3方式
+                  try {
+                    if (internal.breath) {
+                      if (typeof internal.breath.setEnable === 'function') {
+                        internal.breath.setEnable(false);
+                      } else {
+                        internal.breath = null;
+                      }
+                      console.log('Breath disabled');
+                    }
+                  } catch (e) {
+                    console.log('Could not disable breath:', e);
+                  }
+
+                  // 停止所有动画
+                  try {
+                    if (internal.motionManager) {
+                      internal.motionManager.stopAllMotions();
+                      console.log('All motions stopped');
+                    }
+                  } catch (e) {
+                    console.log('Could not stop motions:', e);
+                  }
+                }
+
+                // 设置模型位置和大小
+                model.anchor.set(0.5, 1);
+                model.x = app.screen.width / 2;
+                model.y = app.screen.height;
+
+                // 计算合适的缩放
+                const scale = Math.min(
+                  app.screen.width / model.width * 0.8,
+                  app.screen.height / model.height * 0.8
+                );
+                model.scale.set(scale);
+
+                app.stage.addChild(model);
+
+                // 添加鼠标跟踪
+                let mouseTrackingLogged = false;
+                const onMouseMove = (event: MouseEvent) => {
+                  const rect = canvas.getBoundingClientRect();
+                  const x = (event.clientX - rect.left) / rect.width;
+                  const y = (event.clientY - rect.top) / rect.height;
+
+                  // 转换为Live2D坐标
+                  const liveX = (x - 0.5) * 2;
+                  const liveY = (y - 0.5) * -2;
+
+                  // 设置眼球跟踪参数 - 兼容v2和v3
+                  if (model.internalModel && model.internalModel.coreModel) {
+                    const core = model.internalModel.coreModel;
+                    try {
+                      // 尝试v3 API
+                      if (typeof core.setParameterValueById === 'function') {
+                        core.setParameterValueById('ParamAngleX', liveX * 30);
+                        core.setParameterValueById('ParamAngleY', liveY * 30);
+                        core.setParameterValueById('ParamEyeBallX', liveX);
+                        core.setParameterValueById('ParamEyeBallY', liveY);
+                      }
+                      // 尝试v2 API
+                      else if (typeof core.setParamFloat === 'function') {
+                        core.setParamFloat('PARAM_ANGLE_X', liveX * 30);
+                        core.setParamFloat('PARAM_ANGLE_Y', liveY * 30);
+                        core.setParamFloat('PARAM_EYE_BALL_X', liveX);
+                        core.setParamFloat('PARAM_EYE_BALL_Y', liveY);
+                      }
+                      // 尝试其他可能的API
+                      else if (model.setParam) {
+                        model.setParam('PARAM_ANGLE_X', liveX * 30);
+                        model.setParam('PARAM_ANGLE_Y', liveY * 30);
+                        model.setParam('PARAM_EYE_BALL_X', liveX);
+                        model.setParam('PARAM_EYE_BALL_Y', liveY);
+                      }
+
+                      // 只在第一次成功时显示消息
+                      if (!mouseTrackingLogged) {
+                        console.log('Mouse tracking active');
+                        mouseTrackingLogged = true;
+                      }
+                    } catch (e) {
+                      console.error('Parameter setting failed:', e);
+                    }
+                  }
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+
+                console.log('Live2D v3 model loaded successfully with mouse tracking');
+              })
+              .catch((error: any) => {
+                console.error('Failed to load Live2D v3 model:', error);
+              });
+          }
+        } catch (error) {
+          console.error('Failed to load Live2D scripts:', error);
+          //fallbackToV2();
+        }
       }
+
+
     });
     onUnmounted(() => {
       frontendLog('onUnmounted 触发');

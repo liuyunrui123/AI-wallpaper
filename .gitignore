@@ -14,7 +14,6 @@ __pycache__/
 # OS
 *.swp
 dist_electron/
-public/
 backend/.venv/
 backend/app.spec
 backend/build/
@@ -22,4 +21,4 @@ backend/app.exe
 wallpaper_hoster/WallpaperHosterLively/bin
 wallpaper_hoster/WallpaperHosterLively/obj
 wallpaper_hoster/WallpaperHosterLively/out
-
+AI-wallpaper.sln

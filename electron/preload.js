@@ -1,5 +1,6 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, app } = require('electron');
 const pkg = require('../package.json');
+const path = require('path');
 
 contextBridge.exposeInMainWorld('api', {
     getWeather: (location) => ipcRenderer.invoke('get-weather', location),
@@ -13,7 +14,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     port: process.env.FLASK_API_PORT || '9000',
     host: process.env.FLASK_API_HOST || 'localhost',
     exitWallpaper: () => ipcRenderer.send('exit-wallpaper'),
-    enableLive2D: process.env.ENABLE_LIVE2D === '1' // 直接同步注入
+    enableLive2D: process.env.ENABLE_LIVE2D === '1', // 直接同步注入
+    getResourcePath: (relativePath) => {
+        // 获取资源目录路径
+        const resourcesPath = process.resourcesPath || path.join(__dirname, '../resources');
+        return path.join(resourcesPath, relativePath).replace(/\\/g, '/');
+    }
 });
 
 contextBridge.exposeInMainWorld('electron', {
