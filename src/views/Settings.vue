@@ -25,7 +25,7 @@
       <div class="settings-section">
         <h2>壁纸设置</h2>
         <div class="setting-item">
-          <label>壁纸模式</label>
+          <label>壁纸模式 <span class="restart-required">*需重启</span></label>
           <select v-model="settings.wallpaperMode">
             <option value="0">窗口模式</option>
             <option value="1">壁纸模式</option>
@@ -36,14 +36,19 @@
       <div class="settings-section">
         <h2>API 设置</h2>
         <div class="setting-item">
-          <label>Flask API 端口</label>
+          <label>Flask API 端口 <span class="restart-required">*需重启</span></label>
           <input type="number" v-model="settings.apiPort" min="1000" max="65535" />
         </div>
         <div class="setting-item">
-          <label>Flask API 主机</label>
+          <label>Flask API 主机 <span class="restart-required">*需重启</span></label>
           <input type="text" v-model="settings.apiHost" placeholder="localhost" />
         </div>
       </div>
+    </div>
+
+    <!-- 提示消息 -->
+    <div v-if="message.show" :class="['message-toast', message.type]">
+      {{ message.text }}
     </div>
 
     <div class="settings-footer">
@@ -70,6 +75,26 @@ export default defineComponent({
       apiPort: 9000,
       apiHost: 'localhost'
     });
+
+    const message = ref({
+      show: false,
+      text: '',
+      type: 'success' // 'success', 'warning', 'error'
+    });
+
+    // 显示消息提示
+    const showMessage = (text: string, type: 'success' | 'warning' | 'error' = 'success', duration: number = 3000) => {
+      message.value = {
+        show: true,
+        text,
+        type
+      };
+
+      // 自动隐藏消息
+      setTimeout(() => {
+        message.value.show = false;
+      }, duration);
+    };
 
     const loadSettings = async () => {
       // 从 electronAPI 获取当前设置
@@ -104,6 +129,9 @@ export default defineComponent({
 
       if ((window as any).electronAPI) {
         try {
+          // 获取当前配置以比较变化
+          const currentConfig = await (window as any).electronAPI.getAppConfig();
+
           // 保存应用配置
           const configToSave = {
             wallpaperMode: settings.value.wallpaperMode,
@@ -115,18 +143,29 @@ export default defineComponent({
           const result = await (window as any).electronAPI.saveAppConfig(configToSave);
 
           if (result.success) {
-            alert('设置已保存！\n\n注意：某些设置可能需要重启应用才能完全生效。');
+            // 检查是否有需要重启的配置项发生了变化
+            const needsRestart = (
+              currentConfig.wallpaperMode !== configToSave.wallpaperMode ||
+              currentConfig.apiPort !== configToSave.apiPort ||
+              currentConfig.apiHost !== configToSave.apiHost
+            );
+
+            if (needsRestart) {
+              showMessage('设置已保存！壁纸模式、API端口或API主机的更改需要重启应用才能生效。', 'warning', 5000);
+            } else {
+              showMessage('设置已保存！', 'success');
+            }
             console.log('设置保存成功:', result.message);
           } else {
-            alert('保存设置失败：' + result.message);
+            showMessage('保存设置失败：' + result.message, 'error');
             console.error('设置保存失败:', result.message);
           }
         } catch (error: any) {
           console.error('保存设置时发生错误:', error);
-          alert('保存设置时发生错误：' + (error.message || error));
+          showMessage('保存设置时发生错误：' + (error.message || error), 'error');
         }
       } else {
-        alert('无法访问Electron API，请确保在Electron环境中运行');
+        showMessage('无法访问Electron API，请确保在Electron环境中运行', 'error');
       }
     };
 
@@ -169,6 +208,7 @@ export default defineComponent({
     return {
       version,
       settings,
+      message,
       saveSettings,
       resetSettings,
       restartApp,
@@ -243,6 +283,13 @@ export default defineComponent({
   flex: 1;
 }
 
+.restart-required {
+  color: #FF9800;
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
 .setting-item input,
 .setting-item select {
   padding: 8px 12px;
@@ -305,5 +352,43 @@ export default defineComponent({
 .btn-warning:hover {
   background: #F57C00;
   transform: translateY(-2px);
+}
+
+/* 消息提示样式 */
+.message-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 15px 20px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  z-index: 9999;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: slideIn 0.3s ease-out;
+}
+
+.message-toast.success {
+  background: #4CAF50;
+}
+
+.message-toast.warning {
+  background: #FF9800;
+}
+
+.message-toast.error {
+  background: #f44336;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 </style>
