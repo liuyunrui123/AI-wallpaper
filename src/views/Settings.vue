@@ -51,6 +51,22 @@
       {{ message.text }}
     </div>
 
+    <!-- 自定义确认对话框 -->
+    <div v-if="confirmDialog.show" class="confirm-overlay">
+      <div class="confirm-dialog">
+        <div class="confirm-header">
+          <h3>{{ confirmDialog.title }}</h3>
+        </div>
+        <div class="confirm-content">
+          <p>{{ confirmDialog.message }}</p>
+        </div>
+        <div class="confirm-footer">
+          <button @click="handleConfirmCancel" class="btn-secondary">取消</button>
+          <button @click="handleConfirmOk" class="btn-primary">确定</button>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-footer">
       <button @click="saveSettings" class="btn-primary">保存设置</button>
       <button @click="resetSettings" class="btn-secondary">重置默认</button>
@@ -76,11 +92,57 @@ export default defineComponent({
       apiHost: 'localhost'
     });
 
+
+
+    // 存储原始配置用于比较
+    const originalConfig = ref({
+      wallpaperMode: '0',
+      enableLive2D: false,
+      apiPort: 9000,
+      apiHost: 'localhost'
+    });
+
     const message = ref({
       show: false,
       text: '',
       type: 'success' // 'success', 'warning', 'error'
     });
+
+    // 自定义确认对话框状态
+    const confirmDialog = ref({
+      show: false,
+      title: '',
+      message: '',
+      onConfirm: null as (() => void) | null,
+      onCancel: null as (() => void) | null
+    });
+
+    // 显示自定义确认对话框
+    const showConfirm = (title: string, message: string, onConfirm?: () => void, onCancel?: () => void) => {
+      confirmDialog.value = {
+        show: true,
+        title,
+        message,
+        onConfirm: onConfirm || null,
+        onCancel: onCancel || null
+      };
+    };
+
+    // 处理确认对话框的确定按钮
+    const handleConfirmOk = () => {
+      confirmDialog.value.show = false;
+      if (confirmDialog.value.onConfirm) {
+        confirmDialog.value.onConfirm();
+      }
+    };
+
+    // 处理确认对话框的取消按钮
+    const handleConfirmCancel = () => {
+      confirmDialog.value.show = false;
+      if (confirmDialog.value.onCancel) {
+        confirmDialog.value.onCancel();
+      }
+    };
 
     // 显示消息提示
     const showMessage = (text: string, type: 'success' | 'warning' | 'error' = 'success', duration: number = 3000) => {
@@ -107,8 +169,17 @@ export default defineComponent({
           if (config) {
             settings.value.enableLive2D = config.enableLive2D;
             settings.value.wallpaperMode = config.wallpaperMode;
-            settings.value.apiPort = config.apiPort;
-            settings.value.apiHost = config.apiHost;
+            settings.value.apiPort = Number(config.apiPort);
+            settings.value.apiHost = String(config.apiHost);
+
+            // 同时更新原始配置用于后续比较
+            originalConfig.value = {
+              wallpaperMode: config.wallpaperMode,
+              enableLive2D: config.enableLive2D,
+              apiPort: Number(config.apiPort),
+              apiHost: String(config.apiHost)
+            };
+
             console.log('设置已加载:', config);
           }
 
@@ -129,26 +200,26 @@ export default defineComponent({
 
       if ((window as any).electronAPI) {
         try {
-          // 获取当前配置以比较变化
-          const currentConfig = await (window as any).electronAPI.getAppConfig();
-
           // 保存应用配置
           const configToSave = {
             wallpaperMode: settings.value.wallpaperMode,
             enableLive2D: settings.value.enableLive2D,
-            apiPort: settings.value.apiPort,
-            apiHost: settings.value.apiHost
+            apiPort: Number(settings.value.apiPort),
+            apiHost: String(settings.value.apiHost)
           };
 
           const result = await (window as any).electronAPI.saveAppConfig(configToSave);
 
           if (result.success) {
-            // 检查是否有需要重启的配置项发生了变化
+            // 检查是否有需要重启的配置项发生了变化（使用存储的原始配置）
             const needsRestart = (
-              currentConfig.wallpaperMode !== configToSave.wallpaperMode ||
-              currentConfig.apiPort !== configToSave.apiPort ||
-              currentConfig.apiHost !== configToSave.apiHost
+              originalConfig.value.wallpaperMode !== configToSave.wallpaperMode ||
+              originalConfig.value.apiPort !== configToSave.apiPort ||
+              originalConfig.value.apiHost !== configToSave.apiHost
             );
+
+            // 更新原始配置为当前保存的配置
+            originalConfig.value = { ...configToSave };
 
             if (needsRestart) {
               showMessage('设置已保存！壁纸模式、API端口或API主机的更改需要重启应用才能生效。', 'warning', 5000);
@@ -170,27 +241,37 @@ export default defineComponent({
     };
 
     const resetSettings = () => {
-      if (confirm('确定要重置所有设置为默认值吗？')) {
-        settings.value = {
-          enableLive2D: false,
-          mouseTracking: true,
-          disableAutoAnimations: true,
-          wallpaperMode: '0',
-          apiPort: 9000,
-          apiHost: 'localhost'
-        };
-        console.log('设置已重置为默认值');
-      }
+      showConfirm(
+        '重置设置',
+        '确定要重置所有设置为默认值吗？',
+        () => {
+          // 确认重置
+          settings.value = {
+            enableLive2D: false,
+            mouseTracking: true,
+            disableAutoAnimations: true,
+            wallpaperMode: '0',
+            apiPort: 9000,
+            apiHost: 'localhost'
+          };
+          console.log('设置已重置为默认值');
+        }
+      );
     };
 
     const restartApp = () => {
-      if (confirm('确定要重启应用吗？未保存的更改将会丢失。')) {
-        if ((window as any).electronAPI && (window as any).electronAPI.restartApp) {
-          (window as any).electronAPI.restartApp();
-        } else {
-          alert('无法重启应用，请手动重启');
+      showConfirm(
+        '重启应用',
+        '确定要重启应用吗？未保存的更改将会丢失。',
+        () => {
+          // 确认重启
+          if ((window as any).electronAPI && (window as any).electronAPI.restartApp) {
+            (window as any).electronAPI.restartApp();
+          } else {
+            showMessage('无法重启应用，请手动重启', 'error');
+          }
         }
-      }
+      );
     };
 
     const closeWindow = () => {
@@ -209,10 +290,13 @@ export default defineComponent({
       version,
       settings,
       message,
+      confirmDialog,
       saveSettings,
       resetSettings,
       restartApp,
-      closeWindow
+      closeWindow,
+      handleConfirmOk,
+      handleConfirmCancel
     };
   }
 });
@@ -388,6 +472,113 @@ export default defineComponent({
   }
   to {
     transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 自定义确认对话框样式 */
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.confirm-dialog {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  overflow: hidden;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.confirm-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.confirm-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 500;
+}
+
+.confirm-content {
+  padding: 30px 20px;
+  text-align: center;
+  color: #333;
+}
+
+.confirm-content p {
+  margin: 0;
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+.confirm-footer {
+  padding: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #f8f9fa;
+}
+
+.confirm-footer .btn-primary,
+.confirm-footer .btn-secondary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-footer .btn-primary {
+  background: #4CAF50;
+  color: white;
+}
+
+.confirm-footer .btn-primary:hover {
+  background: #45a049;
+}
+
+.confirm-footer .btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.confirm-footer .btn-secondary:hover {
+  background: #5a6268;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
     opacity: 1;
   }
 }
