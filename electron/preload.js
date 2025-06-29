@@ -22,7 +22,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return path.join(resourcesPath, relativePath).replace(/\\/g, '/');
     },
     readLive2DConfig: () => ipcRenderer.invoke('read-live2d-config'),
-    closeWindow: () => ipcRenderer.send('close-current-window')
+    closeWindow: () => ipcRenderer.send('close-current-window'),
+    getAppConfig: () => ipcRenderer.invoke('get-app-config'),
+    saveAppConfig: (config) => ipcRenderer.invoke('save-app-config', config)
 });
 
 contextBridge.exposeInMainWorld('electron', {

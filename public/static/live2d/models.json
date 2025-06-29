@@ -27,13 +27,21 @@
       "path": "static/live2d/shizuku/shizuku.model.json",
       "version": "v2",
       "description": "经典的Shizuku角色"
+    },
+    {
+      "id": "Senko_Normals",
+      "name": "Senko_Normals",
+      "path": "static/live2d/Senko_Normals/senko.model3.json",
+      "version": "v2",
+      "description": "小狐娘角色"
     }
+    
   ],
-  "default": "haru",
+  "default": "Senko_Normals",
   "settings": {
     "enableMouseTracking": true,
     "disableAutoAnimations": true,
-    "scale": 1.0,
+    "scale": 1.2,
     "position": {
       "x": 0.95,
       "y": 1.0

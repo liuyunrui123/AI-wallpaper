@@ -49,6 +49,7 @@
     <div class="settings-footer">
       <button @click="saveSettings" class="btn-primary">保存设置</button>
       <button @click="resetSettings" class="btn-secondary">重置默认</button>
+      <button @click="restartApp" class="btn-warning">重启应用</button>
       <button @click="closeWindow" class="btn-secondary">关闭</button>
     </div>
   </div>
@@ -70,33 +71,87 @@ export default defineComponent({
       apiHost: 'localhost'
     });
 
-    const loadSettings = () => {
+    const loadSettings = async () => {
       // 从 electronAPI 获取当前设置
       if ((window as any).electronAPI) {
         version.value = (window as any).electronAPI.version || '0.1.3';
-        settings.value.enableLive2D = (window as any).electronAPI.enableLive2D || false;
-        settings.value.apiPort = parseInt((window as any).electronAPI.port) || 9000;
-        settings.value.apiHost = (window as any).electronAPI.host || 'localhost';
-        settings.value.wallpaperMode = (window as any).electronAPI.isWallpaperMode ? '1' : '0';
+
+        try {
+          // 从配置文件加载设置
+          const config = await (window as any).electronAPI.getAppConfig();
+          if (config) {
+            settings.value.enableLive2D = config.enableLive2D;
+            settings.value.wallpaperMode = config.wallpaperMode;
+            settings.value.apiPort = config.apiPort;
+            settings.value.apiHost = config.apiHost;
+            console.log('设置已加载:', config);
+          }
+
+          // 加载Live2D相关设置
+          const live2dConfig = await (window as any).electronAPI.readLive2DConfig();
+          if (live2dConfig && live2dConfig.settings) {
+            settings.value.mouseTracking = live2dConfig.settings.enableMouseTracking !== false;
+            settings.value.disableAutoAnimations = live2dConfig.settings.disableAutoAnimations !== false;
+          }
+        } catch (error) {
+          console.error('加载设置失败:', error);
+        }
       }
     };
 
-    const saveSettings = () => {
+    const saveSettings = async () => {
       console.log('保存设置:', settings.value);
-      // TODO: 实现保存设置到配置文件的逻辑
-      alert('设置已保存！（功能待实现）');
+
+      if ((window as any).electronAPI) {
+        try {
+          // 保存应用配置
+          const configToSave = {
+            wallpaperMode: settings.value.wallpaperMode,
+            enableLive2D: settings.value.enableLive2D,
+            apiPort: settings.value.apiPort,
+            apiHost: settings.value.apiHost
+          };
+
+          const result = await (window as any).electronAPI.saveAppConfig(configToSave);
+
+          if (result.success) {
+            alert('设置已保存！\n\n注意：某些设置可能需要重启应用才能完全生效。');
+            console.log('设置保存成功:', result.message);
+          } else {
+            alert('保存设置失败：' + result.message);
+            console.error('设置保存失败:', result.message);
+          }
+        } catch (error: any) {
+          console.error('保存设置时发生错误:', error);
+          alert('保存设置时发生错误：' + (error.message || error));
+        }
+      } else {
+        alert('无法访问Electron API，请确保在Electron环境中运行');
+      }
     };
 
     const resetSettings = () => {
-      settings.value = {
-        enableLive2D: true,
-        mouseTracking: true,
-        disableAutoAnimations: true,
-        wallpaperMode: '0',
-        apiPort: 9000,
-        apiHost: 'localhost'
-      };
-      console.log('设置已重置为默认值');
+      if (confirm('确定要重置所有设置为默认值吗？')) {
+        settings.value = {
+          enableLive2D: false,
+          mouseTracking: true,
+          disableAutoAnimations: true,
+          wallpaperMode: '0',
+          apiPort: 9000,
+          apiHost: 'localhost'
+        };
+        console.log('设置已重置为默认值');
+      }
+    };
+
+    const restartApp = () => {
+      if (confirm('确定要重启应用吗？未保存的更改将会丢失。')) {
+        if ((window as any).electronAPI && (window as any).electronAPI.restartApp) {
+          (window as any).electronAPI.restartApp();
+        } else {
+          alert('无法重启应用，请手动重启');
+        }
+      }
     };
 
     const closeWindow = () => {
@@ -107,8 +162,8 @@ export default defineComponent({
       }
     };
 
-    onMounted(() => {
-      loadSettings();
+    onMounted(async () => {
+      await loadSettings();
     });
 
     return {
@@ -116,6 +171,7 @@ export default defineComponent({
       settings,
       saveSettings,
       resetSettings,
+      restartApp,
       closeWindow
     };
   }
@@ -209,7 +265,8 @@ export default defineComponent({
 }
 
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-warning {
   padding: 12px 24px;
   border: none;
   border-radius: 25px;
@@ -237,6 +294,16 @@ export default defineComponent({
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-warning {
+  background: #FF9800;
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #F57C00;
   transform: translateY(-2px);
 }
 </style>

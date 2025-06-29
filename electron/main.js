@@ -401,6 +401,76 @@ if (!gotTheLock) {
                 return null;
             }
         });
+
+        // 读取应用配置文件
+        ipcMain.handle('get-app-config', () => {
+            try {
+                const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
+                if (fs.existsSync(configPath)) {
+                    const configData = fs.readFileSync(configPath, 'utf-8');
+                    const config = JSON.parse(configData);
+                    return {
+                        wallpaperMode: config.WALLPAPER_MODE || '0',
+                        enableLive2D: config.ENABLE_LIVE2D === '1',
+                        apiPort: parseInt(config.FLASK_API_PORT) || 9000,
+                        apiHost: config.FLASK_API_HOST || 'localhost',
+                        desktopHwnd: config.DESKTOP_HWND || 0
+                    };
+                } else {
+                    // 返回默认配置
+                    return {
+                        wallpaperMode: '0',
+                        enableLive2D: false,
+                        apiPort: 9000,
+                        apiHost: 'localhost',
+                        desktopHwnd: 0
+                    };
+                }
+            } catch (error) {
+                console.error('Failed to read app config:', error);
+                return null;
+            }
+        });
+
+        // 保存应用配置文件
+        ipcMain.handle('save-app-config', (event, config) => {
+            try {
+                const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
+                const configData = {
+                    WALLPAPER_MODE: config.wallpaperMode || '0',
+                    ENABLE_LIVE2D: config.enableLive2D ? '1' : '0',
+                    FLASK_API_PORT: parseInt(config.apiPort) || 9000,
+                    FLASK_API_HOST: config.apiHost || 'localhost',
+                    DESKTOP_HWND: config.desktopHwnd || 0
+                };
+
+                fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
+                console.log('App config saved:', configData);
+                logToAll('应用配置已保存', 'INFO', 'electron');
+
+                // 更新环境变量以即时生效
+                process.env.WALLPAPER_MODE = configData.WALLPAPER_MODE;
+                process.env.ENABLE_LIVE2D = configData.ENABLE_LIVE2D;
+                process.env.FLASK_API_PORT = String(configData.FLASK_API_PORT);
+                process.env.FLASK_API_HOST = configData.FLASK_API_HOST;
+
+                // 通知所有窗口配置已更新
+                BrowserWindow.getAllWindows().forEach(window => {
+                    window.webContents.send('config-updated', {
+                        enableLive2D: configData.ENABLE_LIVE2D === '1',
+                        wallpaperMode: configData.WALLPAPER_MODE,
+                        apiPort: configData.FLASK_API_PORT,
+                        apiHost: configData.FLASK_API_HOST
+                    });
+                });
+
+                return { success: true, message: '配置保存成功' };
+            } catch (error) {
+                console.error('Failed to save app config:', error);
+                logToAll('保存应用配置失败: ' + error.message, 'ERROR', 'electron');
+                return { success: false, message: '配置保存失败: ' + error.message };
+            }
+        });
     });
     app.on('will-quit', () => {
         globalShortcut.unregisterAll();
