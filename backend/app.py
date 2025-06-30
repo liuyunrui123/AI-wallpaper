@@ -2,8 +2,6 @@ from flask import Flask, jsonify, request, send_from_directory
 from weather.weather_qq_api import get_qq_weather
 from weather.get_location import get_location_by_ip
 from ai_image.ai_image_api import generate_image
-import urllib.parse
-import requests
 import os
 import sys
 from flask_socketio import SocketIO, emit, disconnect
@@ -12,10 +10,7 @@ import time
 import io
 import logging
 from ai_image.make_prompt import make_draw_prompt, get_time_mood, get_weather_key
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
+from ai_image.ai_image_api import download_wallpaper
 # import gevent
 # print("gevent version:", gevent.__version__)
 
@@ -81,98 +76,6 @@ def get_wallpaper_path(filename) -> str:
     # filename = get_wallpaper_filename_by_prompts(prompt)
     return os.path.join(app.config['WALLPAPER_DIR'], filename)
 
-def validate_image_file(file_path):
-    """验证图片文件的完整性"""
-    try:
-        # 检查文件是否存在
-        if not os.path.exists(file_path):
-            return False
-
-        # 检查文件大小
-        file_size = os.path.getsize(file_path)
-        if file_size < 1024:  # 小于1KB认为无效
-            return False
-
-        # 如果PIL可用，尝试打开图片验证格式
-        if Image:
-            try:
-                with Image.open(file_path) as img:
-                    # 验证图片格式
-                    img.verify()
-                    return True
-            except Exception as e:
-                logging.warning(f"validate_image_file [PIL验证失败] {file_path}: {e}")
-                return False
-        else:
-            # 如果PIL不可用，进行基本的文件头验证
-            with open(file_path, 'rb') as f:
-                header = f.read(16)
-                # 检查常见图片格式的文件头
-                if header.startswith(b'\xff\xd8\xff'):  # JPEG
-                    return True
-                elif header.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
-                    return True
-                elif header.startswith(b'GIF87a') or header.startswith(b'GIF89a'):  # GIF
-                    return True
-                elif header.startswith(b'RIFF') and b'WEBP' in header:  # WebP
-                    return True
-                else:
-                    logging.warning(f"validate_image_file [未知格式] {file_path}")
-                    return False
-    except Exception as e:
-        logging.error(f"validate_image_file [验证异常] {file_path}: {e}")
-        return False
-
-def download_wallpaper(prompt, local_path, max_retries=3):
-    encoded_prompt = urllib.parse.quote(prompt)
-    image_url = f'https://image.pollinations.ai/prompt/{encoded_prompt}'
-
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(image_url, headers=headers, timeout=15)
-            if resp.status_code == 200:
-                # 检查响应内容是否为空
-                if not resp.content or len(resp.content) == 0:
-                    logging.warning(f"download_wallpaper [警告] 响应内容为空, 尝试 {attempt + 1}/{max_retries}")
-                    time.sleep(2)
-                    continue
-
-                # 检查内容长度是否合理（至少1KB）
-                if len(resp.content) < 1024:
-                    logging.warning(f"download_wallpaper [警告] 文件过小 ({len(resp.content)} bytes), 可能不是有效图片, 尝试 {attempt + 1}/{max_retries}")
-                    time.sleep(2)
-                    continue
-
-                # 写入文件
-                with open(local_path, 'wb') as f:
-                    f.write(resp.content)
-
-                # 验证文件完整性
-                if not validate_image_file(local_path):
-                    logging.warning(f"download_wallpaper [警告] 文件验证失败, 尝试 {attempt + 1}/{max_retries}")
-                    # 删除无效文件
-                    try:
-                        os.remove(local_path)
-                    except:
-                        pass
-                    time.sleep(2)
-                    continue
-
-                logging.info(f"download_wallpaper [成功] 壁纸下载到: {local_path}, 大小: {len(resp.content)} bytes")
-                return True
-            else:
-                logging.error(f"download_wallpaper [失败] 状态码 {resp.status_code}, 尝试 {attempt + 1}/{max_retries}")
-                time.sleep(5)  # 等待后重试
-        except Exception as e:
-            logging.error(f"download_wallpaper [错误] 请求异常: {e}, 尝试 {attempt + 1}/{max_retries}")
-            time.sleep(2)
-
-    logging.error(f"download_wallpaper [终止] 多次尝试后仍失败, image_url: {image_url}")
-    return False
 
 @app.route('/api/version', methods=['GET'])
 def version():
