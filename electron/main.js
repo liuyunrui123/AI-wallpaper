@@ -101,7 +101,8 @@ function openSettingsWindow() {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js')
         },
-        //autoHideMenuBar: true,
+        // 设置窗口的菜单栏
+        autoHideMenuBar: true,
         resizable: true,
         minimizable: true,
         maximizable: true,
@@ -448,6 +449,39 @@ if (!gotTheLock) {
                 console.log('App config saved:', configData);
                 logToAll('应用配置已保存', 'INFO', 'electron');
 
+                // 如果有Live2D相关配置，也保存到Live2D配置文件
+                if (config.selectedModel || config.mouseTracking !== undefined || config.disableAutoAnimations !== undefined) {
+                    try {
+                        const live2dConfigPath = path.join(process.resourcesPath, 'static', 'live2d', 'models.json');
+                        if (fs.existsSync(live2dConfigPath)) {
+                            const live2dConfigData = JSON.parse(fs.readFileSync(live2dConfigPath, 'utf-8'));
+
+                            // 更新默认模型
+                            if (config.selectedModel) {
+                                live2dConfigData.default = config.selectedModel;
+                            }
+
+                            // 更新Live2D设置
+                            if (!live2dConfigData.settings) {
+                                live2dConfigData.settings = {};
+                            }
+
+                            if (config.mouseTracking !== undefined) {
+                                live2dConfigData.settings.enableMouseTracking = config.mouseTracking;
+                            }
+
+                            if (config.disableAutoAnimations !== undefined) {
+                                live2dConfigData.settings.disableAutoAnimations = config.disableAutoAnimations;
+                            }
+
+                            fs.writeFileSync(live2dConfigPath, JSON.stringify(live2dConfigData, null, 2), 'utf-8');
+                            console.log('Live2D config saved:', live2dConfigData);
+                        }
+                    } catch (live2dError) {
+                        console.error('Failed to save Live2D config:', live2dError);
+                    }
+                }
+
                 // 更新环境变量以即时生效
                 process.env.WALLPAPER_MODE = configData.WALLPAPER_MODE;
                 process.env.ENABLE_LIVE2D = configData.ENABLE_LIVE2D;
@@ -460,7 +494,10 @@ if (!gotTheLock) {
                         enableLive2D: configData.ENABLE_LIVE2D === '1',
                         wallpaperMode: configData.WALLPAPER_MODE,
                         apiPort: configData.FLASK_API_PORT,
-                        apiHost: configData.FLASK_API_HOST
+                        apiHost: configData.FLASK_API_HOST,
+                        selectedModel: config.selectedModel,
+                        mouseTracking: config.mouseTracking,
+                        disableAutoAnimations: config.disableAutoAnimations
                     });
                 });
 

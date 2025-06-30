@@ -13,6 +13,14 @@
           <input type="checkbox" v-model="settings.enableLive2D" />
         </div>
         <div class="setting-item">
+          <label>Live2D 角色</label>
+          <select v-model="settings.selectedModel" :disabled="!settings.enableLive2D">
+            <option v-for="model in availableModels" :key="model.id" :value="model.id">
+              {{ model.name }} - {{ model.description }}
+            </option>
+          </select>
+        </div>
+        <div class="setting-item">
           <label>鼠标跟踪</label>
           <input type="checkbox" v-model="settings.mouseTracking" />
         </div>
@@ -89,8 +97,18 @@ export default defineComponent({
       disableAutoAnimations: true,
       wallpaperMode: '0',
       apiPort: 9000,
-      apiHost: 'localhost'
+      apiHost: 'localhost',
+      selectedModel: 'Senko_Normals'
     });
+
+    // 可用的Live2D模型列表
+    const availableModels = ref<Array<{
+      id: string;
+      name: string;
+      path: string;
+      version: string;
+      description: string;
+    }>>([]);
 
 
 
@@ -99,7 +117,10 @@ export default defineComponent({
       wallpaperMode: '0',
       enableLive2D: false,
       apiPort: 9000,
-      apiHost: 'localhost'
+      apiHost: 'localhost',
+      selectedModel: 'Senko_Normals',
+      mouseTracking: true,
+      disableAutoAnimations: true
     });
 
     const message = ref({
@@ -177,7 +198,10 @@ export default defineComponent({
               wallpaperMode: config.wallpaperMode,
               enableLive2D: config.enableLive2D,
               apiPort: Number(config.apiPort),
-              apiHost: String(config.apiHost)
+              apiHost: String(config.apiHost),
+              selectedModel: settings.value.selectedModel,
+              mouseTracking: settings.value.mouseTracking,
+              disableAutoAnimations: settings.value.disableAutoAnimations
             };
 
             console.log('设置已加载:', config);
@@ -185,9 +209,23 @@ export default defineComponent({
 
           // 加载Live2D相关设置
           const live2dConfig = await (window as any).electronAPI.readLive2DConfig();
-          if (live2dConfig && live2dConfig.settings) {
-            settings.value.mouseTracking = live2dConfig.settings.enableMouseTracking !== false;
-            settings.value.disableAutoAnimations = live2dConfig.settings.disableAutoAnimations !== false;
+          if (live2dConfig) {
+            // 加载可用模型列表
+            availableModels.value = live2dConfig.models || [];
+
+            // 设置当前选中的模型
+            settings.value.selectedModel = live2dConfig.default || 'Senko_Normals';
+
+            // 加载其他Live2D设置
+            if (live2dConfig.settings) {
+              settings.value.mouseTracking = live2dConfig.settings.enableMouseTracking !== false;
+              settings.value.disableAutoAnimations = live2dConfig.settings.disableAutoAnimations !== false;
+            }
+
+            // 更新原始配置中的Live2D部分
+            originalConfig.value.selectedModel = settings.value.selectedModel;
+            originalConfig.value.mouseTracking = settings.value.mouseTracking;
+            originalConfig.value.disableAutoAnimations = settings.value.disableAutoAnimations;
           }
         } catch (error) {
           console.error('加载设置失败:', error);
@@ -205,7 +243,10 @@ export default defineComponent({
             wallpaperMode: settings.value.wallpaperMode,
             enableLive2D: settings.value.enableLive2D,
             apiPort: Number(settings.value.apiPort),
-            apiHost: String(settings.value.apiHost)
+            apiHost: String(settings.value.apiHost),
+            selectedModel: settings.value.selectedModel,
+            mouseTracking: settings.value.mouseTracking,
+            disableAutoAnimations: settings.value.disableAutoAnimations
           };
 
           const result = await (window as any).electronAPI.saveAppConfig(configToSave);
@@ -252,7 +293,8 @@ export default defineComponent({
             disableAutoAnimations: true,
             wallpaperMode: '0',
             apiPort: 9000,
-            apiHost: 'localhost'
+            apiHost: 'localhost',
+            selectedModel: 'Senko_Normals'
           };
           console.log('设置已重置为默认值');
         }
@@ -289,6 +331,7 @@ export default defineComponent({
     return {
       version,
       settings,
+      availableModels,
       message,
       confirmDialog,
       saveSettings,

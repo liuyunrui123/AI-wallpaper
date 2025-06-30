@@ -310,6 +310,16 @@ export class Live2DManager {
       this.destroy();
     }
   }
+
+  async reload(): Promise<void> {
+    if (this.enableLive2D.value && this.isInitialized) {
+      console.log('重新加载Live2D模型...');
+      this.destroy();
+      // 等待一小段时间确保销毁完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await this.init();
+    }
+  }
 }
 
 // 创建全局Live2D管理器实例

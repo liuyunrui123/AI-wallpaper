@@ -183,6 +183,12 @@ export default defineComponent({
             // Live2D被禁用，销毁
             console.log('Live2D被禁用，正在销毁...');
             live2dManager.destroy();
+          } else if (config.enableLive2D && wasEnabled) {
+            // Live2D已启用，检查是否需要重新加载（角色更换等）
+            if (config.selectedModel || config.mouseTracking !== undefined || config.disableAutoAnimations !== undefined) {
+              console.log('Live2D配置已更新，正在重新加载...');
+              live2dManager.reload();
+            }
           }
         });
       }
