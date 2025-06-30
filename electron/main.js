@@ -83,6 +83,15 @@ function restartApp() {
     });
 }
 
+function refreshWallpaper() {
+    // 通知所有窗口刷新壁纸
+    BrowserWindow.getAllWindows().forEach(window => {
+        window.webContents.send('refresh-wallpaper');
+    });
+    console.log('已发送刷新壁纸请求到所有窗口');
+    logToAll('用户请求刷新壁纸', 'INFO', 'electron');
+}
+
 function openSettingsWindow() {
     // 如果设置窗口已经存在，则聚焦到该窗口
     if (settingsWindow) {
@@ -344,11 +353,13 @@ function createTray() {
     try {
         tray = new Tray(iconPath);
         const contextMenu = Menu.buildFromTemplate([
-            { label: '设置', click: () => { openSettingsWindow(); } },
+            { label: '🔄 刷新壁纸', click: () => { refreshWallpaper(); } },
             { type: 'separator' },
-            { label: '重启程序', click: () => { restartApp(); } },
+            { label: '⚙️ 设置', click: () => { openSettingsWindow(); } },
             { type: 'separator' },
-            { label: '退出壁纸', click: () => { safeQuit(); } }
+            { label: '🔄 重启程序', click: () => { restartApp(); } },
+            { type: 'separator' },
+            { label: '❌ 退出壁纸', click: () => { safeQuit(); } }
         ]);
         tray.setToolTip('AI Wallpaper');
         tray.setContextMenu(contextMenu);

@@ -128,6 +128,21 @@ export default defineComponent({
       }
     };
 
+    const refreshWallpaper = async () => {
+      try {
+        frontendLog('开始强制刷新壁纸...');
+        const res = await axios.post(`${API_BASE}/refresh-wallpaper`);
+        console.log('强制刷新壁纸API返回:', res.data);
+        frontendLog('强制刷新壁纸成功: ' + JSON.stringify(res.data));
+
+        // 刷新成功后，重新获取壁纸数据
+        await fetchWallpaper();
+      } catch (error) {
+        console.error('强制刷新壁纸失败:', error);
+        frontendLog('强制刷新壁纸失败: ' + error);
+      }
+    };
+
     const exitWallpaper = () => {
       frontendLog('退出壁纸按钮被点击');
       // 通过Electron IPC退出
@@ -190,6 +205,13 @@ export default defineComponent({
               live2dManager.reload();
             }
           }
+        });
+
+        // 监听刷新壁纸事件
+        window.electron.ipcRenderer.on('refresh-wallpaper', () => {
+          console.log('收到刷新壁纸请求');
+          frontendLog('收到刷新壁纸请求');
+          refreshWallpaper();
         });
       }
       // 检查后端是否就绪

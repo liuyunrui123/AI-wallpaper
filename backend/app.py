@@ -154,6 +154,49 @@ def auto_wallpaper():
         'time_mood': time_mood
     })
 
+@app.route('/api/refresh-wallpaper', methods=['POST'])
+def refresh_wallpaper():
+    """强制生成新壁纸"""
+    global CACHE
+    try:
+        update_cache()
+        time_mood = CACHE['time_mood']
+        weather_key = CACHE['weather_key']
+
+        # 参考wallpaper_monitor的逻辑
+        prompt = make_draw_prompt(time_mood, weather_key)
+        CACHE['prompt'] = prompt
+        filename = get_wallpaper_filename_by_prompts(prompt)
+        local_path = get_wallpaper_path(filename)
+
+        if os.path.exists(local_path):
+            logging.info(f"[refresh_wallpaper] 已存在壁纸文件: {local_path}")
+            return jsonify({
+                'success': True,
+                'message': '壁纸已存在',
+                'filename': filename,
+                'prompt': prompt
+            })
+
+        logging.info(f"[refresh_wallpaper] 开始生成新壁纸: {prompt}")
+        ret = download_wallpaper(prompt, local_path, max_retries=3)
+
+        if ret == True:
+            logging.info(f"[refresh_wallpaper] 新壁纸生成成功: {local_path}")
+            return jsonify({
+                'success': True,
+                'message': '新壁纸生成成功',
+                'filename': filename,
+                'prompt': prompt
+            })
+        else:
+            logging.error(f"[refresh_wallpaper] 新壁纸生成失败")
+            return jsonify({'error': '壁纸生成失败，请稍后重试'}), 500
+
+    except Exception as e:
+        logging.error(f"refresh_wallpaper error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/static/<path:filename>')
 def static_files(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'static'), filename)
@@ -166,9 +209,9 @@ last_weather = None
 def update_cache():
     global LOCATION_CACHE
     global CACHE
-    if 'error' in LOCATION_CACHE:
-        logging.error(f"[location] 获取位置为空: {LOCATION_CACHE['error']}")
-        LOCATION_CACHE = get_location_by_ip()
+    # if 'error' in LOCATION_CACHE:
+    #     logging.error(f"[location] 获取位置为空: {LOCATION_CACHE['error']}")
+    LOCATION_CACHE = get_location_by_ip()
     loc = LOCATION_CACHE
     province = loc.get('province', '')
     city = loc.get('city', '')
