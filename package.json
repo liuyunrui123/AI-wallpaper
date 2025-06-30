@@ -1,6 +1,6 @@
 {
-  "name": "wallpaper-app",
-  "version": "0.1.3",
+  "name": "AI_Wallpaper",
+  "version": "0.1.4",
   "description": "A wallpaper application built with Electron and Vue.js, featuring a Python backend for weather API and time analysis, along with AI image generation.",
   "main": "electron/main.js",
   "scripts": {
