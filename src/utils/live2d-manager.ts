@@ -102,10 +102,32 @@ export class Live2DManager {
   private modelManager: Live2DModelManager;
   private enableLive2D: Ref<boolean>;
   private modelConfig: any = null; // 存储当前模型的配置
+  private hoverTimer: NodeJS.Timeout | null = null; // 悬停计时器
+  private isWallpaperMode = false; // 是否为壁纸模式
 
   constructor(enableLive2D: Ref<boolean>) {
     this.enableLive2D = enableLive2D;
     this.modelManager = new Live2DModelManager();
+
+    // 检查是否为壁纸模式
+    this.checkWallpaperMode();
+  }
+
+  // 检查是否为壁纸模式（初始化时确定）
+  private async checkWallpaperMode(): Promise<void> {
+    try {
+      if ((window as any).electronAPI && (window as any).electronAPI.getAppConfig) {
+        const config = await (window as any).electronAPI.getAppConfig();
+        if (config && config.wallpaperMode) {
+          this.isWallpaperMode = config.wallpaperMode !== '0';
+          console.log('检测到壁纸模式状态:', this.isWallpaperMode);
+        }
+      }
+    } catch (error) {
+      console.warn('检查壁纸模式失败:', error);
+      // 默认为窗口模式
+      this.isWallpaperMode = false;
+    }
   }
 
   private async loadScript(src: string): Promise<void> {
@@ -131,6 +153,9 @@ export class Live2DManager {
 
     try {
       console.log('Live2D初始化开始...');
+
+      // 首先检查壁纸模式（初始化时确定交互方式）
+      await this.checkWallpaperMode();
 
       // 先加载必要的脚本
       await this.loadScript('./live2d.min.js');
@@ -326,6 +351,11 @@ export class Live2DManager {
         // 添加触摸交互功能
         this.setupTouchInteraction();
 
+        // 添加额外的调试 - 测试模型是否可以接收事件
+        setTimeout(() => {
+          this.testModelInteraction();
+        }, 1000);
+
         console.log('Live2D v3 model loaded successfully with touch interaction');
       } else {
         console.error('No model found to load');
@@ -337,6 +367,12 @@ export class Live2DManager {
 
   destroy(): void {
     console.log('Live2D销毁开始...');
+
+    // 清理悬停计时器
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
 
     if (this.model) {
       if (this.app && this.app.stage) {
@@ -386,27 +422,224 @@ export class Live2DManager {
   private setupTouchInteraction(): void {
     if (!this.model || !this.app) return;
 
-    console.log('设置Live2D触摸交互...');
+    console.log('设置Live2D触摸交互...', '壁纸模式:', this.isWallpaperMode);
+    console.log('模型信息:', {
+      width: this.model.width,
+      height: this.model.height,
+      x: this.model.x,
+      y: this.model.y,
+      interactive: this.model.interactive,
+      version: this.modelConfig?.Version
+    });
 
     // 使模型可交互
     this.model.interactive = true;
     this.model.buttonMode = true;
-
+    this.model.cursor = 'pointer';
+ 
     // 允许canvas接收事件
     const canvas = this.app.view;
     canvas.style.pointerEvents = 'auto';
 
-    // 添加点击事件监听器
-    this.model.on('pointerdown', (event: any) => {
-      this.handleTouch(event);
-    });
+    // 清除之前的事件监听器
+    this.model.removeAllListeners();
 
-    // 添加触摸事件监听器（移动设备）
-    this.model.on('touchstart', (event: any) => {
-      this.handleTouch(event);
-    });
+    if (this.isWallpaperMode) {
+      // 壁纸模式：使用悬停交互
+      console.log('设置悬停交互模式');
+
+      // 添加鼠标进入事件
+      this.model.on('pointerover', (event: any) => {
+        console.log('pointerover事件触发');
+        this.handleHoverStart(event);
+      });
+
+      // 添加鼠标移动事件
+      this.model.on('pointermove', (event: any) => {
+        console.log('pointermove事件触发');
+        this.handleHoverMove(event);
+      });
+
+      // 添加鼠标离开事件
+      this.model.on('pointerout', () => {
+        console.log('pointerout事件触发');
+        this.handleHoverEnd();
+      });
+
+      // 添加额外的调试事件
+      this.model.on('mouseover', (event: any) => {
+        console.log('mouseover事件触发');
+        this.handleHoverStart(event);
+      });
+
+      this.model.on('mouseout', () => {
+        console.log('mouseout事件触发');
+        this.handleHoverEnd();
+      });
+
+      // 删除了canvas级别的事件监听器作为备用方案
+
+    } else {
+      // 窗口模式：使用点击交互
+      console.log('设置点击交互模式');
+
+      // 添加点击事件监听器
+      this.model.on('pointerdown', (event: any) => {
+        this.handleTouch(event);
+      });
+
+      // 添加触摸事件监听器（移动设备）
+      this.model.on('touchstart', (event: any) => {
+        this.handleTouch(event);
+      });
+    }
 
     console.log('Live2D触摸交互设置完成');
+  }
+
+  // 测试模型交互功能
+  private testModelInteraction(): void {
+    if (!this.model) return;
+
+    console.log('测试模型交互功能...');
+    console.log('模型交互属性:', {
+      interactive: this.model.interactive,
+      buttonMode: this.model.buttonMode,
+      hitArea: this.model.hitArea,
+      bounds: this.model.getBounds(),
+      worldTransform: this.model.worldTransform
+    });
+
+    // 尝试手动触发一个测试事件
+    if (this.isWallpaperMode) {
+      console.log('壁纸模式 - 可以尝试悬停在Live2D角色上测试交互');
+    } else {
+      console.log('窗口模式 - 可以尝试点击Live2D角色测试交互');
+    }
+  }
+
+  // 检查鼠标位置是否在模型上
+  private isPointOverModel(event: MouseEvent): boolean {
+    if (!this.model || !this.app) return false;
+
+    try {
+      const canvas = this.app.view;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      // 获取模型的边界
+      const bounds = this.model.getBounds();
+
+      return x >= bounds.x && x <= bounds.x + bounds.width &&
+             y >= bounds.y && y <= bounds.y + bounds.height;
+    } catch (error) {
+      console.warn('检查鼠标位置失败:', error);
+      return false;
+    }
+  }
+
+  // 处理悬停开始事件
+  private handleHoverStart(event: any): void {
+    if (!this.model || !this.isWallpaperMode) return;
+
+    try {
+      console.log('鼠标悬停开始');
+
+      // 清除之前的计时器
+      if (this.hoverTimer) {
+        clearTimeout(this.hoverTimer);
+      }
+
+      // 设置悬停计时器（1.5秒后触发）
+      this.hoverTimer = setTimeout(() => {
+        this.handleHoverTrigger(event);
+      }, 1500);
+
+    } catch (error) {
+      console.error('处理悬停开始事件失败:', error);
+    }
+  }
+
+  // 处理悬停移动事件
+  private handleHoverMove(event: any): void {
+    if (!this.model || !this.isWallpaperMode) return;
+
+    try {
+      // 重置悬停计时器
+      if (this.hoverTimer) {
+        clearTimeout(this.hoverTimer);
+        this.hoverTimer = setTimeout(() => {
+          this.handleHoverTrigger(event);
+        }, 1500);
+      }
+
+    } catch (error) {
+      console.error('处理悬停移动事件失败:', error);
+    }
+  }
+
+  // 处理悬停结束事件
+  private handleHoverEnd(): void {
+    if (!this.model || !this.isWallpaperMode) return;
+
+    try {
+      console.log('鼠标悬停结束');
+
+      // 清除悬停计时器
+      if (this.hoverTimer) {
+        clearTimeout(this.hoverTimer);
+        this.hoverTimer = null;
+      }
+
+    } catch (error) {
+      console.error('处理悬停结束事件失败:', error);
+    }
+  }
+
+  // 处理悬停触发事件
+  private handleHoverTrigger(event: any): void {
+    if (!this.model) return;
+
+    try {
+      console.log('悬停触发Live2D交互');
+
+      // 获取悬停位置 - 修复坐标映射问题
+      let localPoint;
+      if (event.data && event.data.getLocalPosition) {
+        // 标准PIXI事件
+        localPoint = event.data.getLocalPosition(this.model);
+      } else {
+        // 自定义事件（canvas级别）
+        localPoint = event.data.getLocalPosition();
+      }
+
+      // 调试坐标信息
+      console.log('原始悬停位置:', localPoint);
+      console.log('模型信息:', {
+        x: this.model.x,
+        y: this.model.y,
+        width: this.model.width,
+        height: this.model.height,
+        anchor: this.model.anchor
+      });
+
+      // 修正坐标 - 转换为相对于模型的坐标
+      const correctedPoint = this.correctCoordinates(localPoint);
+      console.log('修正后坐标:', correctedPoint);
+
+      const hitArea = this.getHitArea(correctedPoint);
+      console.log('命中区域:', hitArea);
+
+      // 播放相应的触摸动作
+      this.playTouchMotion(hitArea);
+
+      // 清除计时器
+      this.hoverTimer = null;
+
+    } catch (error) {
+      console.error('处理悬停触发事件失败:', error);
+    }
   }
 
   // 处理触摸事件
@@ -416,11 +649,24 @@ export class Live2DManager {
     try {
       console.log('Live2D模型被触摸');
 
-      // 获取触摸位置
+      // 获取触摸位置 - 修复坐标映射问题
       const localPoint = event.data.getLocalPosition(this.model);
-      const hitArea = this.getHitArea(localPoint);
 
-      console.log('触摸位置:', localPoint);
+      // 调试坐标信息
+      console.log('原始触摸位置:', localPoint);
+      console.log('模型信息:', {
+        x: this.model.x,
+        y: this.model.y,
+        width: this.model.width,
+        height: this.model.height,
+        anchor: this.model.anchor
+      });
+
+      // 修正坐标 - 转换为相对于模型的坐标
+      const correctedPoint = this.correctCoordinates(localPoint);
+      console.log('修正后坐标:', correctedPoint);
+
+      const hitArea = this.getHitArea(correctedPoint);
       console.log('命中区域:', hitArea);
 
       // 播放相应的触摸动作
@@ -431,22 +677,88 @@ export class Live2DManager {
     }
   }
 
+  // 修正坐标映射
+  private correctCoordinates(point: any): any {
+    if (!this.model || !point) return point;
+
+    try {
+      // 获取模型的实际尺寸和位置
+      const modelBounds = this.model.getBounds();
+      const modelWidth = this.model.width;
+      const modelHeight = this.model.height;
+
+      console.log('坐标修正调试:', {
+        原始坐标: point,
+        模型边界: modelBounds,
+        模型尺寸: { width: modelWidth, height: modelHeight },
+        模型位置: { x: this.model.x, y: this.model.y },
+        模型锚点: this.model.anchor
+      });
+
+      // 如果坐标是负数或异常小，说明坐标系统有问题
+      if (point.x < 0 || point.y < 0 || (point.x < 100 && point.y < 100)) {
+        console.log('检测到异常坐标，尝试修正...');
+
+        // 方法1: 使用模型边界进行修正
+        const correctedX = point.x + modelBounds.x;
+        const correctedY = point.y + modelBounds.y;
+
+        // 方法2: 如果还是异常，使用模型中心点作为参考
+        if (correctedX < 0 || correctedY < 0) {
+          return {
+            x: modelWidth * 0.5,  // 默认中心点
+            y: modelHeight * 0.5
+          };
+        }
+
+        return { x: correctedX, y: correctedY };
+      }
+
+      // 坐标正常，直接返回
+      return point;
+
+    } catch (error) {
+      console.warn('坐标修正失败:', error);
+      // 返回模型中心点作为默认值
+      return {
+        x: this.model.width * 0.5,
+        y: this.model.height * 0.5
+      };
+    }
+  }
+
   // 获取命中区域
   private getHitArea(point: any): string {
     if (!this.model) return this.getDefaultMotionKey();
 
     try {
       const modelHeight = this.model.height;
+      const modelWidth = this.model.width;
+
+      console.log('区域判断:', {
+        点坐标: point,
+        模型尺寸: { width: modelWidth, height: modelHeight },
+        Y比例: point.y / modelHeight,
+        区域阈值: { 头部: 0.3, 身体: 0.7 }
+      });
+
+      // 确保坐标在有效范围内
+      if (point.x < 0 || point.x > modelWidth || point.y < 0 || point.y > modelHeight) {
+        console.log('坐标超出模型范围，使用默认区域');
+        return this.getDefaultMotionKey();
+      }
 
       // 简单的区域划分
-      if (point.y < modelHeight * 0.3) {
-        console.log('头部区域');
+      const yRatio = point.y / modelHeight;
+
+      if (yRatio < 0.3) {
+        console.log('头部区域 (Y比例:', yRatio, ')');
         return this.getHeadMotionKey(); // 头部区域
-      } else if (point.y < modelHeight * 0.7) {
-        console.log('身体区域');
+      } else if (yRatio < 0.7) {
+        console.log('身体区域 (Y比例:', yRatio, ')');
         return this.getBodyMotionKey(); // 身体区域
       } else {
-        console.log('下半身区域');
+        console.log('下半身区域 (Y比例:', yRatio, ')');
         return this.getBodyMotionKey(); // 下半身也算身体
       }
 
