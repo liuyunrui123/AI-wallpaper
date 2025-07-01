@@ -103,7 +103,7 @@ export class Live2DManager {
   private enableLive2D: Ref<boolean>;
   private modelConfig: any = null; // 存储当前模型的配置
   private hoverTimer: NodeJS.Timeout | null = null; // 悬停计时器
-  private isWallpaperMode = false; // 是否为壁纸模式
+  private isWallpaperMode = true; // 是否为壁纸模式
 
   constructor(enableLive2D: Ref<boolean>) {
     this.enableLive2D = enableLive2D;
@@ -115,19 +115,19 @@ export class Live2DManager {
 
   // 检查是否为壁纸模式（初始化时确定）
   private async checkWallpaperMode(): Promise<void> {
-    try {
-      if ((window as any).electronAPI && (window as any).electronAPI.getAppConfig) {
-        const config = await (window as any).electronAPI.getAppConfig();
-        if (config && config.wallpaperMode) {
-          this.isWallpaperMode = config.wallpaperMode !== '0';
-          console.log('检测到壁纸模式状态:', this.isWallpaperMode);
-        }
-      }
-    } catch (error) {
-      console.warn('检查壁纸模式失败:', error);
-      // 默认为窗口模式
-      this.isWallpaperMode = false;
-    }
+    // try {
+    //   if ((window as any).electronAPI && (window as any).electronAPI.getAppConfig) {
+    //     const config = await (window as any).electronAPI.getAppConfig();
+    //     if (config && config.wallpaperMode) {
+    //       this.isWallpaperMode = config.wallpaperMode !== '0';
+    //       console.log('检测到壁纸模式状态:', this.isWallpaperMode);
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.warn('检查壁纸模式失败:', error);
+    //   // 默认为窗口模式
+    //   this.isWallpaperMode = false;
+    // }
   }
 
   private async loadScript(src: string): Promise<void> {
@@ -423,14 +423,6 @@ export class Live2DManager {
     if (!this.model || !this.app) return;
 
     console.log('设置Live2D触摸交互...', '壁纸模式:', this.isWallpaperMode);
-    console.log('模型信息:', {
-      width: this.model.width,
-      height: this.model.height,
-      x: this.model.x,
-      y: this.model.y,
-      interactive: this.model.interactive,
-      version: this.modelConfig?.Version
-    });
 
     // 使模型可交互
     this.model.interactive = true;
@@ -450,30 +442,25 @@ export class Live2DManager {
 
       // 添加鼠标进入事件
       this.model.on('pointerover', (event: any) => {
-        console.log('pointerover事件触发');
         this.handleHoverStart(event);
       });
 
       // 添加鼠标移动事件
       this.model.on('pointermove', (event: any) => {
-        console.log('pointermove事件触发');
         this.handleHoverMove(event);
       });
 
       // 添加鼠标离开事件
       this.model.on('pointerout', () => {
-        console.log('pointerout事件触发');
         this.handleHoverEnd();
       });
 
-      // 添加额外的调试事件
+      // 添加额外的事件监听器以提高兼容性
       this.model.on('mouseover', (event: any) => {
-        console.log('mouseover事件触发');
         this.handleHoverStart(event);
       });
 
       this.model.on('mouseout', () => {
-        console.log('mouseout事件触发');
         this.handleHoverEnd();
       });
 
@@ -501,51 +488,16 @@ export class Live2DManager {
   private testModelInteraction(): void {
     if (!this.model) return;
 
-    console.log('测试模型交互功能...');
-    console.log('模型交互属性:', {
-      interactive: this.model.interactive,
-      buttonMode: this.model.buttonMode,
-      hitArea: this.model.hitArea,
-      bounds: this.model.getBounds(),
-      worldTransform: this.model.worldTransform
-    });
-
-    // 尝试手动触发一个测试事件
-    if (this.isWallpaperMode) {
-      console.log('壁纸模式 - 可以尝试悬停在Live2D角色上测试交互');
-    } else {
-      console.log('窗口模式 - 可以尝试点击Live2D角色测试交互');
-    }
+    console.log('Live2D交互功能已就绪 -', this.isWallpaperMode ? '壁纸模式' : '窗口模式');
   }
 
-  // 检查鼠标位置是否在模型上
-  private isPointOverModel(event: MouseEvent): boolean {
-    if (!this.model || !this.app) return false;
 
-    try {
-      const canvas = this.app.view;
-      const rect = canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-
-      // 获取模型的边界
-      const bounds = this.model.getBounds();
-
-      return x >= bounds.x && x <= bounds.x + bounds.width &&
-             y >= bounds.y && y <= bounds.y + bounds.height;
-    } catch (error) {
-      console.warn('检查鼠标位置失败:', error);
-      return false;
-    }
-  }
 
   // 处理悬停开始事件
   private handleHoverStart(event: any): void {
     if (!this.model || !this.isWallpaperMode) return;
 
     try {
-      console.log('鼠标悬停开始');
-
       // 清除之前的计时器
       if (this.hoverTimer) {
         clearTimeout(this.hoverTimer);
@@ -584,8 +536,6 @@ export class Live2DManager {
     if (!this.model || !this.isWallpaperMode) return;
 
     try {
-      console.log('鼠标悬停结束');
-
       // 清除悬停计时器
       if (this.hoverTimer) {
         clearTimeout(this.hoverTimer);
@@ -614,19 +564,8 @@ export class Live2DManager {
         localPoint = event.data.getLocalPosition();
       }
 
-      // 调试坐标信息
-      console.log('原始悬停位置:', localPoint);
-      console.log('模型信息:', {
-        x: this.model.x,
-        y: this.model.y,
-        width: this.model.width,
-        height: this.model.height,
-        anchor: this.model.anchor
-      });
-
       // 修正坐标 - 转换为相对于模型的坐标
       const correctedPoint = this.correctCoordinates(localPoint);
-      console.log('修正后坐标:', correctedPoint);
 
       const hitArea = this.getHitArea(correctedPoint);
       console.log('命中区域:', hitArea);
@@ -652,19 +591,8 @@ export class Live2DManager {
       // 获取触摸位置 - 修复坐标映射问题
       const localPoint = event.data.getLocalPosition(this.model);
 
-      // 调试坐标信息
-      console.log('原始触摸位置:', localPoint);
-      console.log('模型信息:', {
-        x: this.model.x,
-        y: this.model.y,
-        width: this.model.width,
-        height: this.model.height,
-        anchor: this.model.anchor
-      });
-
       // 修正坐标 - 转换为相对于模型的坐标
       const correctedPoint = this.correctCoordinates(localPoint);
-      console.log('修正后坐标:', correctedPoint);
 
       const hitArea = this.getHitArea(correctedPoint);
       console.log('命中区域:', hitArea);
@@ -687,18 +615,8 @@ export class Live2DManager {
       const modelWidth = this.model.width;
       const modelHeight = this.model.height;
 
-      console.log('坐标修正调试:', {
-        原始坐标: point,
-        模型边界: modelBounds,
-        模型尺寸: { width: modelWidth, height: modelHeight },
-        模型位置: { x: this.model.x, y: this.model.y },
-        模型锚点: this.model.anchor
-      });
-
       // 如果坐标是负数或异常小，说明坐标系统有问题
       if (point.x < 0 || point.y < 0 || (point.x < 100 && point.y < 100)) {
-        console.log('检测到异常坐标，尝试修正...');
-
         // 方法1: 使用模型边界进行修正
         const correctedX = point.x + modelBounds.x;
         const correctedY = point.y + modelBounds.y;
@@ -735,16 +653,8 @@ export class Live2DManager {
       const modelHeight = this.model.height;
       const modelWidth = this.model.width;
 
-      console.log('区域判断:', {
-        点坐标: point,
-        模型尺寸: { width: modelWidth, height: modelHeight },
-        Y比例: point.y / modelHeight,
-        区域阈值: { 头部: 0.3, 身体: 0.7 }
-      });
-
       // 确保坐标在有效范围内
       if (point.x < 0 || point.x > modelWidth || point.y < 0 || point.y > modelHeight) {
-        console.log('坐标超出模型范围，使用默认区域');
         return this.getDefaultMotionKey();
       }
 
