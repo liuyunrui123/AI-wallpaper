@@ -101,6 +101,7 @@ export class Live2DManager {
   private model: any = null;
   private modelManager: Live2DModelManager;
   private enableLive2D: Ref<boolean>;
+  private modelConfig: any = null; // 存储当前模型的配置
 
   constructor(enableLive2D: Ref<boolean>) {
     this.enableLive2D = enableLive2D;
@@ -163,10 +164,18 @@ export class Live2DManager {
 
       const settings = this.modelManager.getSettings();
       const configScale = settings.scale || 0.8;
-
-      // 根据缩放动态调整canvas大小
       const baseWidth = 240;
-      const baseHeight = 400;
+      let baseHeight = 400;
+      // 提前获取模型的高与宽的比例
+      const selectedModel = this.modelManager.getDefaultModel();
+      if (selectedModel) {
+        const modelPath = this.modelManager.getModelPath('./' + selectedModel.path);
+        await this.loadModelConfig(modelPath);
+        this.model = await Live2DModel.from(modelPath);
+        const modelRatio = this.model.height / this.model.width;
+        // 根据缩放动态调整canvas大小
+        baseHeight = baseWidth * modelRatio;
+      }
       const canvasWidth = Math.max(baseWidth, baseWidth * configScale);
       const canvasHeight = Math.max(baseHeight, baseHeight * configScale);
 
@@ -186,7 +195,7 @@ export class Live2DManager {
       canvas.id = 'live2d-canvas';
       canvas.style.position = 'fixed';
       // 给canvas增加可见的边框
-      canvas.style.border = '1px solid red';
+      //canvas.style.border = '1px solid red';
 
       let transformX = '';
       let transformY = '';
@@ -221,7 +230,7 @@ export class Live2DManager {
         canvas.style.bottom = `${bottomPercent}%`;
       }
 
-      canvas.style.pointerEvents = 'none';
+      canvas.style.pointerEvents = 'auto'; // 允许交互
       container.appendChild(canvas);
 
       // 加载模型
@@ -234,6 +243,36 @@ export class Live2DManager {
     } catch (error) {
       console.error('Failed to initialize Live2D:', error);
       return false;
+    }
+  }
+
+  // 加载模型配置文件
+  private async loadModelConfig(modelPath: string): Promise<void> {
+    try {
+      console.log('加载模型配置:', modelPath);
+
+      // 发送请求获取模型配置
+      const response = await fetch(modelPath);
+      if (response.ok) {
+        this.modelConfig = await response.json();
+        console.log('模型配置加载成功:', this.modelConfig);
+
+        // 检查版本并记录可用动作
+        if (this.modelConfig.Version === 3) {
+          console.log('检测到Live2D v3模型');
+          if (this.modelConfig.FileReferences && this.modelConfig.FileReferences.Motions) {
+            console.log('可用动作:', Object.keys(this.modelConfig.FileReferences.Motions));
+          }
+        } else {
+          console.log('检测到Live2D v2模型');
+          if (this.modelConfig.motions) {
+            console.log('可用动作:', Object.keys(this.modelConfig.motions));
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('加载模型配置失败:', error);
+      this.modelConfig = null;
     }
   }
 
@@ -250,6 +289,9 @@ export class Live2DManager {
         this.model = await Live2DModel.from(modelPath);
         console.log('Live2D v3 model loaded:', this.model);
 
+        // 加载模型配置以获取动作信息
+        await this.loadModelConfig(modelPath);
+
         // 如果存在model_position，使用model_position设置模型锚点
         if (selectedModel.model_position) {
           this.model.anchor.set(selectedModel.model_position.x, selectedModel.model_position.y);
@@ -264,6 +306,10 @@ export class Live2DManager {
         if (selectedModel.model_scale) {
           modelScale = selectedModel.model_scale;
         }
+        // console.log('this.app.screen.width:', this.app.screen.width);
+        // console.log('this.app.screen.height:', this.app.screen.height);
+        // console.log('this.model.width:', this.model.width);
+        // console.log('this.model.height:', this.model.height);
         const scale = Math.min(
           this.app.screen.width / this.model.width * modelScale,
           this.app.screen.height / this.model.height * modelScale
@@ -276,7 +322,11 @@ export class Live2DManager {
         });
 
         this.app.stage.addChild(this.model);
-        console.log('Live2D v3 model loaded successfully with mouse tracking');
+
+        // 添加触摸交互功能
+        this.setupTouchInteraction();
+
+        console.log('Live2D v3 model loaded successfully with touch interaction');
       } else {
         console.error('No model found to load');
       }
@@ -329,6 +379,199 @@ export class Live2DManager {
       // 等待一小段时间确保销毁完成
       await new Promise(resolve => setTimeout(resolve, 100));
       await this.init();
+    }
+  }
+
+  // 设置触摸交互功能
+  private setupTouchInteraction(): void {
+    if (!this.model || !this.app) return;
+
+    console.log('设置Live2D触摸交互...');
+
+    // 使模型可交互
+    this.model.interactive = true;
+    this.model.buttonMode = true;
+
+    // 允许canvas接收事件
+    const canvas = this.app.view;
+    canvas.style.pointerEvents = 'auto';
+
+    // 添加点击事件监听器
+    this.model.on('pointerdown', (event: any) => {
+      this.handleTouch(event);
+    });
+
+    // 添加触摸事件监听器（移动设备）
+    this.model.on('touchstart', (event: any) => {
+      this.handleTouch(event);
+    });
+
+    console.log('Live2D触摸交互设置完成');
+  }
+
+  // 处理触摸事件
+  private handleTouch(event: any): void {
+    if (!this.model) return;
+
+    try {
+      console.log('Live2D模型被触摸');
+
+      // 获取触摸位置
+      const localPoint = event.data.getLocalPosition(this.model);
+      const hitArea = this.getHitArea(localPoint);
+
+      console.log('触摸位置:', localPoint);
+      console.log('命中区域:', hitArea);
+
+      // 播放相应的触摸动作
+      this.playTouchMotion(hitArea);
+
+    } catch (error) {
+      console.error('处理触摸事件失败:', error);
+    }
+  }
+
+  // 获取命中区域
+  private getHitArea(point: any): string {
+    if (!this.model) return this.getDefaultMotionKey();
+
+    try {
+      const modelHeight = this.model.height;
+
+      // 简单的区域划分
+      if (point.y < modelHeight * 0.3) {
+        console.log('头部区域');
+        return this.getHeadMotionKey(); // 头部区域
+      } else if (point.y < modelHeight * 0.7) {
+        console.log('身体区域');
+        return this.getBodyMotionKey(); // 身体区域
+      } else {
+        console.log('下半身区域');
+        return this.getBodyMotionKey(); // 下半身也算身体
+      }
+
+    } catch (error) {
+      console.warn('获取命中区域失败:', error);
+      return this.getDefaultMotionKey();
+    }
+  }
+
+  // 获取头部动作键名（根据模型配置）
+  private getHeadMotionKey(): string {
+    if (this.modelConfig) {
+      if (this.modelConfig.Version === 3) {
+        // V3版本：检查可用的头部动作
+        const motions = this.modelConfig.FileReferences?.Motions || {};
+        if (motions.TapHead) return 'TapHead';
+        if (motions.Taphead) return 'Taphead';
+        if (motions.taphead) return 'taphead';
+        if (motions.head) return 'head';
+        return 'Tap'; // 默认使用Tap
+      } else {
+        // V2版本：检查可用的头部动作
+        const motions = this.modelConfig.motions || {};
+        if (motions.flick_head) return 'flick_head';
+        if (motions.tap_head) return 'tap_head';
+        if (motions.head) return 'head';
+        return 'tap_body'; // 默认使用tap_body
+      }
+    }
+
+    // 如果没有配置，使用版本推测
+    const selectedModel = this.modelManager.getDefaultModel();
+    if (selectedModel && selectedModel.version === 'v3') {
+      return 'TapHead';
+    } else {
+      return 'flick_head';
+    }
+  }
+
+  // 获取身体动作键名（根据模型配置）
+  private getBodyMotionKey(): string {
+    if (this.modelConfig) {
+      if (this.modelConfig.Version === 3) {
+        // V3版本：检查可用的身体动作
+        const motions = this.modelConfig.FileReferences?.Motions || {};
+        if (motions.TapBody) return 'TapBody';
+        if (motions.Tapbody) return 'Tapbody';
+        if (motions.Tap) return 'Tap';
+        if (motions.tap) return 'tap';
+        return 'Tap'; // 默认使用Tap
+      } else {
+        // V2版本：检查可用的身体动作
+        const motions = this.modelConfig.motions || {};
+        if (motions.tap_body) return 'tap_body';
+        if (motions.tap) return 'tap';
+        if (motions.body) return 'body';
+        return 'tap_body'; // 默认使用tap_body
+      }
+    }
+
+    // 如果没有配置，使用版本推测
+    const selectedModel = this.modelManager.getDefaultModel();
+    if (selectedModel && selectedModel.version === 'v3') {
+      return 'Tap';
+    } else {
+      return 'tap_body';
+    }
+  }
+
+  // 获取默认动作键名（根据模型配置）
+  private getDefaultMotionKey(): string {
+    return this.getBodyMotionKey(); // 默认使用身体动作
+  }
+
+  // 播放触摸动作
+  private playTouchMotion(motionGroup: string): void {
+    if (!this.model || !this.model.internalModel) return;
+
+    try {
+      console.log('播放触摸动作:', motionGroup);
+
+      // 获取动作管理器
+      const motionManager = this.model.internalModel.motionManager;
+      if (motionManager) {
+        // 随机选择该组中的一个动作索引
+        const motionIndex = Math.floor(Math.random() * 3); // 假设每组最多有3个动作
+
+        // 播放动作
+        motionManager.startMotion(motionGroup, motionIndex);
+        console.log(`播放动作: ${motionGroup}[${motionIndex}]`);
+      }
+
+      // 播放音效（如果有）
+      this.playTouchSound(motionGroup);
+
+    } catch (error) {
+      console.warn('播放触摸动作失败:', error);
+      // 如果播放失败，尝试播放默认动作
+      this.playDefaultMotion();
+    }
+  }
+
+  // 播放默认动作
+  private playDefaultMotion(): void {
+    try {
+      if (this.model && this.model.internalModel && this.model.internalModel.motionManager) {
+        this.model.internalModel.motionManager.startMotion('tap_body', 0);
+        console.log('播放默认触摸动作');
+      }
+    } catch (error) {
+      console.warn('播放默认动作失败:', error);
+    }
+  }
+
+  // 播放触摸音效
+  private playTouchSound(motionGroup: string): void {
+    try {
+      // 这里可以根据动作类型播放相应的音效
+      // 暂时只记录日志
+      console.log('触摸音效:', motionGroup);
+
+      // 未来可以扩展音效播放功能
+      // 例如：播放模型目录下的sounds文件夹中的音频文件
+    } catch (error) {
+      console.warn('播放触摸音效失败:', error);
     }
   }
 }

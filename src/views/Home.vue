@@ -60,8 +60,9 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.is
 }
 
 let enableLive2D = ref(true);
-if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.enableLive2D) {
-  enableLive2D.value = true;
+if (typeof window !== 'undefined' && window.electronAPI) {
+  if(!window.electronAPI.enableLive2D)
+    enableLive2D.value = false;
 }
 
 export default defineComponent({
