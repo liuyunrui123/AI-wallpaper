@@ -211,7 +211,13 @@ def update_cache():
     global CACHE
     # if 'error' in LOCATION_CACHE:
     #     logging.error(f"[location] 获取位置为空: {LOCATION_CACHE['error']}")
-    LOCATION_CACHE = get_location_by_ip()
+    ret_location = get_location_by_ip()
+    if 'error' in ret_location:
+        logging.error(f"[location] 获取位置失败: {ret_location['error']}")
+    else:
+        logging.info(f"[location] 获取位置成功: {ret_location}")
+        LOCATION_CACHE = ret_location
+
     loc = LOCATION_CACHE
     province = loc.get('province', '')
     city = loc.get('city', '')

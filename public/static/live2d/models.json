@@ -22,22 +22,46 @@
       "description": "温柔的Wanko角色"
     },
     {
+      "id": "cat-black",
+      "name": "cat-black",
+      "path": "static/live2d/cat-black/model.json",
+      "version": "v2",
+      "description": "黑猫"
+    },
+    {
+      "id": "cat-white",
+      "name": "cat-white",
+      "path": "static/live2d/cat-white/model.json",
+      "version": "v2",
+      "description": "白猫"
+    },
+    {
       "id": "shizuku",
       "name": "Shizuku",
       "path": "static/live2d/shizuku/shizuku.model.json",
       "version": "v2",
-      "description": "经典的Shizuku角色"
+      "description": "经典的Shizuku角色",
+      "model_scale": 1.0,
+      "model_position": {
+        "x": 0.5,
+        "y": 1.1
+      }
     },
     {
       "id": "Senko_Normals",
       "name": "Senko_Normals",
       "path": "static/live2d/Senko_Normals/senko.model3.json",
-      "version": "v2",
-      "description": "小狐娘角色"
+      "version": "v3",
+      "description": "小狐娘角色",
+      "model_scale": 1.1,
+      "model_position": {
+        "x": 0.5,
+        "y": 0.9
+      }
     }
     
   ],
-  "default": "Senko_Normals",
+  "default": "cat-white",
   "settings": {
     "enableMouseTracking": true,
     "disableAutoAnimations": true,

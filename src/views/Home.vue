@@ -59,7 +59,7 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.is
   isWallpaperMode = true;
 }
 
-let enableLive2D = ref(false);
+let enableLive2D = ref(true);
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.enableLive2D) {
   enableLive2D.value = true;
 }

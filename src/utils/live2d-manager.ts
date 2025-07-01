@@ -1,66 +1,72 @@
 import { ref, Ref } from 'vue';
 
-export interface Live2DConfig {
-  models: Array<{
-    id: string;
-    name: string;
-    path: string;
-    version: string;
-    description: string;
-  }>;
-  default: string;
-  settings: {
-    enableMouseTracking: boolean;
-    disableAutoAnimations: boolean;
-    scale: number;
-    position: {
-      x: number;
-      y: number;
-    };
-  };
+// Live2D版本类型
+export type Live2DVersion = 'v2' | 'v3';
+
+// Live2D位置配置
+export interface Live2DPosition {
+  x: number; // 0.0-1.0，相对于屏幕宽度的位置
+  y: number; // 0.0-1.0，相对于屏幕高度的位置
 }
 
+// Live2D模型接口
 export interface Live2DModel {
   id: string;
   name: string;
   path: string;
-  version: string;
-  description: string;
+  version: Live2DVersion; // 可选字段
+  description?: string; // 可选字段
+  model_scale: number; // 可选字段
+  model_position?: Live2DPosition; // 可选字段
+}
+
+// Live2D设置接口
+export interface Live2DSettings {
+  enableMouseTracking?: boolean;
+  disableAutoAnimations?: boolean;
+  scale?: number;
+  position?: Live2DPosition;
+}
+
+// Live2D配置接口（使用Live2DModel接口）
+export interface Live2DConfig {
+  models: Live2DModel[];
+  default: string;
+  settings?: Live2DSettings;
 }
 
 export class Live2DModelManager {
-  private models: any[] = [];
-  private settings: any = {};
-  private defaultModel: string = "haru";
+  private models: Live2DModel[] = [];
+  private settings: Live2DSettings = {};
+  private defaultModel: string = "Senko_Normals";
 
-  async loadConfig() {
+  async loadConfig(): Promise<Live2DConfig | null> {
     try {
+      let config: any;
+
       // 检查是否在Electron环境中
       if (!(process.env.NODE_ENV === 'development') && (window as any).electronAPI) {
         // 打包后的Electron环境，使用IPC读取文件
-        const config = await (window as any).electronAPI.readLive2DConfig();
-        if (config) {
-          this.models = config.models || [];
-          this.settings = config.settings || {};
-          this.defaultModel = config.default || 'haru';
-          console.log('Live2D models config loaded via IPC:', this.models);
-          return config;
-        }
+        config = await (window as any).electronAPI.readLive2DConfig();
       } else {
         // 开发环境，使用fetch
         const configPath = './static/live2d/models.json';
         const response = await fetch(configPath);
-        const config = await response.json();
+        config = await response.json();
+      }
+
+      if (config) {
         this.models = config.models || [];
         this.settings = config.settings || {};
-        this.defaultModel = config.default || 'haru';
-        console.log('Live2D models config loaded via fetch:', this.models);
-        return config;
+        this.defaultModel = config.default || 'Senko_Normals';
+        console.log('Live2D models config loaded:', this.models);
+        return config as Live2DConfig;
       }
     } catch (error) {
       console.error('Failed to load Live2D models config:', error);
-      return null;
     }
+
+    return null;
   }
 
   getModelPath(modelPath: string) {
@@ -179,6 +185,8 @@ export class Live2DManager {
       const canvas = this.app.view;
       canvas.id = 'live2d-canvas';
       canvas.style.position = 'fixed';
+      // 给canvas增加可见的边框
+      canvas.style.border = '1px solid red';
 
       let transformX = '';
       let transformY = '';
@@ -242,9 +250,9 @@ export class Live2DManager {
         this.model = await Live2DModel.from(modelPath);
         console.log('Live2D v3 model loaded:', this.model);
 
-        // 设置模型锚点和位置
-        if (selectedModel.version === "v2") {
-          this.model.anchor.set(0.5, 1.1);
+        // 如果存在model_position，使用model_position设置模型锚点
+        if (selectedModel.model_position) {
+          this.model.anchor.set(selectedModel.model_position.x, selectedModel.model_position.y);
         } else {
           this.model.anchor.set(0.5, 1.0);
         }
@@ -252,7 +260,10 @@ export class Live2DManager {
         this.model.x = this.app.screen.width * 0.5;
         this.model.y = this.app.screen.height * 1.0;
 
-        const modelScale = 0.95;
+        let modelScale = 1.0;
+        if (selectedModel.model_scale) {
+          modelScale = selectedModel.model_scale;
+        }
         const scale = Math.min(
           this.app.screen.width / this.model.width * modelScale,
           this.app.screen.height / this.model.height * modelScale
