@@ -83,18 +83,34 @@
               </div>
               <input type="checkbox" v-model="settings.autoLocation" />
             </div>
-            <div v-if="!settings.autoLocation" class="manual-location">
+            <div class="manual-location" :class="{ disabled: settings.autoLocation }">
+              <label>手动设置地理位置</label>
               <div class="setting-item">
                 <label>省份</label>
-                <input type="text" v-model="settings.manualLocation.province" placeholder="请输入省份，如：北京" />
+                <input
+                  type="text"
+                  v-model="settings.manualLocation.province"
+                  placeholder="请输入省份，如：北京"
+                  :disabled="settings.autoLocation"
+                />
               </div>
               <div class="setting-item">
                 <label>城市</label>
-                <input type="text" v-model="settings.manualLocation.city" placeholder="请输入城市，如：北京" />
+                <input
+                  type="text"
+                  v-model="settings.manualLocation.city"
+                  placeholder="请输入城市，如：北京"
+                  :disabled="settings.autoLocation"
+                />
               </div>
               <div class="setting-item">
                 <label>区县</label>
-                <input type="text" v-model="settings.manualLocation.county" placeholder="请输入区县，如：朝阳区" />
+                <input
+                  type="text"
+                  v-model="settings.manualLocation.county"
+                  placeholder="请输入区县，如：朝阳区"
+                  :disabled="settings.autoLocation"
+                />
               </div>
             </div>
           </div>
@@ -473,6 +489,14 @@ export default defineComponent({
               originalConfig.value.apiHost !== configToSave.apiHost
             );
 
+            // 检查地理位置相关设置是否发生变化
+            const locationChanged = (
+              originalConfig.value.autoLocation !== configToSave.autoLocation ||
+              originalConfig.value.manualLocation?.province !== configToSave.manualLocation?.province ||
+              originalConfig.value.manualLocation?.city !== configToSave.manualLocation?.city ||
+              originalConfig.value.manualLocation?.county !== configToSave.manualLocation?.county
+            );
+
             // 更新原始配置为当前保存的配置
             originalConfig.value = {
               ...configToSave
@@ -486,18 +510,24 @@ export default defineComponent({
             }
             console.log('设置保存成功:', result.message);
 
-            // 异步通知后端地理位置配置变更，不阻塞用户界面
-            notifyLocationConfigChange().then(locationNotified => {
-              if (!locationNotified) {
-                console.warn('通知后端地理位置配置失败，但本地配置已保存');
-                // 可选：显示一个不太显眼的提示
-                // showMessage('后端同步失败，但配置已保存', 'warning', 2000);
-              } else {
-                console.log('后端地理位置配置同步成功');
-              }
-            }).catch(error => {
-              console.error('异步通知后端时发生错误:', error);
-            });
+            // 只有地理位置设置发生变化时才通知后端
+            if (locationChanged) {
+              console.log('检测到地理位置设置变更，通知后端更新');
+              // 异步通知后端地理位置配置变更，不阻塞用户界面
+              notifyLocationConfigChange().then(locationNotified => {
+                if (!locationNotified) {
+                  console.warn('通知后端地理位置配置失败，但本地配置已保存');
+                  // 可选：显示一个不太显眼的提示
+                  // showMessage('后端同步失败，但配置已保存', 'warning', 2000);
+                } else {
+                  console.log('后端地理位置配置同步成功');
+                }
+              }).catch(error => {
+                console.error('异步通知后端时发生错误:', error);
+              });
+            } else {
+              console.log('地理位置设置未变更，跳过后端通知');
+            }
           } else {
             showMessage('保存设置失败：' + result.message, 'error');
             console.error('设置保存失败:', result.message);
@@ -609,13 +639,13 @@ export default defineComponent({
 }
 
 .sidebar-header {
-  padding: 30px 25px;
+  padding: 25px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 1.8em;
+  margin: 0 0 6px 0;
+  font-size: 1.6em;
   font-weight: 600;
   color: white;
 }
@@ -623,19 +653,19 @@ export default defineComponent({
 .sidebar-header .version {
   margin: 0;
   opacity: 0.7;
-  font-size: 0.85em;
+  font-size: 0.8em;
   color: rgba(255, 255, 255, 0.8);
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 20px 0;
+  padding: 15px 0;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 15px 25px;
+  padding: 12px 20px;
   cursor: pointer;
   transition: all 0.3s ease;
   border-left: 3px solid transparent;
@@ -651,23 +681,52 @@ export default defineComponent({
 }
 
 .nav-item i {
-  width: 20px;
-  height: 20px;
-  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
   opacity: 0.8;
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .nav-item span {
-  font-size: 0.95em;
+  font-size: 0.85em;
   font-weight: 500;
 }
 
 /* 图标样式 */
-.icon-settings::before { content: '⚙️'; }
-.icon-palette::before { content: '🎨'; }
-.icon-location::before { content: '📍'; }
-.icon-network::before { content: '🌐'; }
-.icon-info::before { content: 'ℹ️'; }
+.icon-settings::before {
+  content: '⚙️';
+  font-style: normal;
+  font-weight: normal;
+  text-rendering: optimizeLegibility;
+}
+.icon-palette::before {
+  content: '🎨';
+  font-style: normal;
+  font-weight: normal;
+  text-rendering: optimizeLegibility;
+}
+.icon-location::before {
+  content: '📍';
+  font-style: normal;
+  font-weight: normal;
+  text-rendering: optimizeLegibility;
+}
+.icon-network::before {
+  content: '🌐';
+  font-style: normal;
+  font-weight: normal;
+  text-rendering: optimizeLegibility;
+}
+.icon-info::before {
+  content: 'ℹ️';
+  font-style: normal;
+  font-weight: normal;
+  text-rendering: optimizeLegibility;
+}
 
 /* 右侧内容区 */
 .settings-content {
@@ -678,40 +737,40 @@ export default defineComponent({
 }
 
 .content-header {
-  padding: 30px 40px 20px;
+  padding: 25px 35px 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .content-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 1.8em;
+  margin: 0 0 6px 0;
+  font-size: 1.5em;
   font-weight: 600;
 }
 
 .category-description {
   margin: 0;
   opacity: 0.8;
-  font-size: 0.9em;
+  font-size: 0.8em;
 }
 
 .content-body {
   flex: 1;
-  padding: 30px 40px;
+  padding: 25px 35px;
   overflow-y: auto;
 }
 
 /* 设置卡片 */
 .setting-card {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
-  padding: 30px;
+  border-radius: 12px;
+  padding: 20px;
   backdrop-filter: blur(10px);
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .setting-card h3 {
-  margin: 0 0 20px 0;
-  font-size: 1.3em;
+  margin: 0 0 15px 0;
+  font-size: 1.1em;
   font-weight: 500;
   color: white;
 }
@@ -721,8 +780,8 @@ export default defineComponent({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 15px 0;
+  margin-bottom: 12px;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -739,33 +798,35 @@ export default defineComponent({
 
 .setting-item label {
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   color: white;
+  font-size: 0.9em;
 }
 
 .setting-description {
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: rgba(255, 255, 255, 0.7);
   font-style: italic;
+  line-height: 1.3;
 }
 
 .restart-required {
   color: #FF9800;
-  font-size: 0.8em;
+  font-size: 0.7em;
   font-weight: 400;
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
 /* 输入框样式 */
 .setting-item input,
 .setting-item select {
-  padding: 10px 15px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.9);
   color: #333;
-  min-width: 180px;
-  font-size: 0.9em;
+  min-width: 150px;
+  font-size: 0.85em;
   transition: all 0.3s ease;
 }
 
@@ -778,19 +839,41 @@ export default defineComponent({
 
 .setting-item input[type="checkbox"] {
   min-width: auto;
-  width: 18px;
-  height: 18px;
-  transform: scale(1.2);
+  width: 16px;
+  height: 16px;
+  transform: scale(1.1);
   cursor: pointer;
 }
 
 /* 手动位置设置区域 */
 .manual-location {
-  margin-top: 15px;
-  padding: 20px;
+  margin-top: 12px;
+  padding: 15px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.manual-location.disabled {
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.manual-location.disabled label {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.manual-location.disabled input {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+}
+
+.manual-location.disabled input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
 }
 
 /* 关于页面信息 */
@@ -824,21 +907,21 @@ export default defineComponent({
 
 /* 底部按钮区域 */
 .settings-footer {
-  padding: 25px 40px;
+  padding: 20px 35px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: center;
-  gap: 15px;
+  gap: 12px;
 }
 
 .btn-primary,
 .btn-secondary,
 .btn-warning {
-  padding: 12px 24px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 25px;
-  font-size: 1em;
+  border-radius: 6px;
+  font-size: 0.9em;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
