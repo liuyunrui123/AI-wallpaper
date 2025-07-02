@@ -101,8 +101,8 @@ function openSettingsWindow() {
 
     // 创建设置窗口
     settingsWindow = new BrowserWindow({
-        width: 600,
-        height: 1000,
+        width: 900,
+        height: 700,
         title: 'AI Wallpaper 设置',
         icon: path.join(__dirname, '../public/icon.ico'),
         webPreferences: {
