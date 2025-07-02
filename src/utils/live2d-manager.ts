@@ -38,32 +38,57 @@ export interface Live2DConfig {
 export class Live2DModelManager {
   private models: Live2DModel[] = [];
   private settings: Live2DSettings = {};
-  private defaultModel: string = "Senko_Normals";
+  private defaultModel: string = "cat-white";
 
   async loadConfig(): Promise<Live2DConfig | null> {
     try {
-      let config: any;
+      let modelsConfig: any;
+      let appConfig: any;
 
-      // 检查是否在Electron环境中
+      // 加载模型列表配置
       if (!(process.env.NODE_ENV === 'development') && (window as any).electronAPI) {
         // 打包后的Electron环境，使用IPC读取文件
-        config = await (window as any).electronAPI.readLive2DConfig();
+        modelsConfig = await (window as any).electronAPI.readLive2DConfig();
+        appConfig = await (window as any).electronAPI.getAppConfig();
       } else {
         // 开发环境，使用fetch
-        const configPath = './static/live2d/models.json';
-        const response = await fetch(configPath);
-        config = await response.json();
+        const modelsConfigPath = './static/live2d/models.json';
+        const modelsResponse = await fetch(modelsConfigPath);
+        modelsConfig = await modelsResponse.json();
+
+        // 开发环境下无法获取主配置，使用默认设置
+        appConfig = null;
       }
 
-      if (config) {
-        this.models = config.models || [];
-        this.settings = config.settings || {};
-        this.defaultModel = config.default || 'Senko_Normals';
+      if (modelsConfig) {
+        this.models = modelsConfig.models || [];
+
+        // 从主配置文件获取Live2D设置
+        if (appConfig && appConfig.live2dSettings) {
+          this.settings = appConfig.live2dSettings;
+          this.defaultModel = appConfig.selectedModel || 'cat-white';
+        } else {
+          // 使用默认设置
+          this.settings = {
+            enableMouseTracking: true,
+            disableAutoAnimations: true,
+            scale: 1.2,
+            position: { x: 0.95, y: 1.0 }
+          };
+        }
+
         console.log('Live2D models config loaded:', this.models);
-        return config as Live2DConfig;
+        console.log('Live2D settings loaded:', this.settings);
+        console.log('Default model:', this.defaultModel);
+
+        return {
+          models: this.models,
+          default: this.defaultModel,
+          settings: this.settings
+        } as Live2DConfig;
       }
     } catch (error) {
-      console.error('Failed to load Live2D models config:', error);
+      console.error('Failed to load Live2D config:', error);
     }
 
     return null;

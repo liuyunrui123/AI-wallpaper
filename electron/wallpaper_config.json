@@ -5,8 +5,15 @@
   "apiHost": "localhost",
   "desktopHwnd": 0,
   "selectedModel": "cat-white",
-  "mouseTracking": true,
-  "disableAutoAnimations": true,
+  "live2dSettings": {
+    "enableMouseTracking": true,
+    "disableAutoAnimations": true,
+    "scale": 1.2,
+    "position": {
+      "x": 0.95,
+      "y": 1.0
+    }
+  },
   "autoLocation": true,
   "manualLocation": {
     "province": "",

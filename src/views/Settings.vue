@@ -63,11 +63,23 @@
             </div>
             <div class="setting-item" v-if="settings.enableLive2D">
               <label>鼠标跟踪</label>
-              <input type="checkbox" v-model="settings.mouseTracking" />
+              <input type="checkbox" v-model="settings.live2dSettings.enableMouseTracking" />
             </div>
             <div class="setting-item" v-if="settings.enableLive2D">
               <label>禁用自动动画</label>
-              <input type="checkbox" v-model="settings.disableAutoAnimations" />
+              <input type="checkbox" v-model="settings.live2dSettings.disableAutoAnimations" />
+            </div>
+            <div class="setting-item" v-if="settings.enableLive2D">
+              <label>模型缩放</label>
+              <input type="number" v-model.number="settings.live2dSettings.scale" step="0.1" min="0.1" max="3.0" />
+            </div>
+            <div class="setting-item" v-if="settings.enableLive2D">
+              <label>水平位置 (0.0-1.0)</label>
+              <input type="number" v-model.number="settings.live2dSettings.position.x" step="0.05" min="0" max="1" />
+            </div>
+            <div class="setting-item" v-if="settings.enableLive2D">
+              <label>垂直位置 (0.0-1.0)</label>
+              <input type="number" v-model.number="settings.live2dSettings.position.y" step="0.05" min="0" max="1" />
             </div>
           </div>
         </div>
@@ -200,13 +212,20 @@ export default defineComponent({
     const version = ref('');
     const settings = ref({
       enableLive2D: true,
-      mouseTracking: true,
-      disableAutoAnimations: true,
       wallpaperMode: '0',
       apiPort: 9000,
       apiHost: 'localhost',
       desktopHwnd: 0,
-      selectedModel: 'Senko_Normals',
+      selectedModel: 'cat-white',
+      live2dSettings: {
+        enableMouseTracking: true,
+        disableAutoAnimations: true,
+        scale: 1.2,
+        position: {
+          x: 0.95,
+          y: 1.0
+        }
+      },
       autoLocation: true,
       manualLocation: {
         province: '',
@@ -285,8 +304,15 @@ export default defineComponent({
         apiHost: String(settings.value.apiHost),
         desktopHwnd: Number(settings.value.desktopHwnd || 0),
         selectedModel: String(settings.value.selectedModel),
-        mouseTracking: Boolean(settings.value.mouseTracking),
-        disableAutoAnimations: Boolean(settings.value.disableAutoAnimations),
+        live2dSettings: {
+          enableMouseTracking: Boolean(settings.value.live2dSettings?.enableMouseTracking),
+          disableAutoAnimations: Boolean(settings.value.live2dSettings?.disableAutoAnimations),
+          scale: Number(settings.value.live2dSettings?.scale || 1.2),
+          position: {
+            x: Number(settings.value.live2dSettings?.position?.x || 0.95),
+            y: Number(settings.value.live2dSettings?.position?.y || 1.0)
+          }
+        },
         autoLocation: Boolean(settings.value.autoLocation),
         manualLocation: {
           province: String(settings.value.manualLocation?.province || ''),
@@ -327,6 +353,24 @@ export default defineComponent({
       }
     };
 
+    // 地理位置变更后刷新壁纸
+    const refreshWallpaperAfterLocationChange = () => {
+      try {
+        console.log('地理位置配置已更新，触发壁纸刷新');
+
+        // 检查是否在Electron环境中
+        if ((window as any).electron && (window as any).electron.ipcRenderer) {
+          // 直接发送refresh-wallpaper消息，调用main.js中现有的refreshWallpaper()函数
+          (window as any).electron.ipcRenderer.send('refresh-wallpaper');
+          console.log('已发送壁纸刷新请求');
+        } else {
+          console.warn('非Electron环境，无法触发壁纸刷新');
+        }
+      } catch (error) {
+        console.error('触发壁纸刷新时发生错误:', error);
+      }
+    };
+
 
 
     // 存储原始配置用于比较
@@ -336,9 +380,16 @@ export default defineComponent({
       apiPort: 9000,
       apiHost: 'localhost',
       desktopHwnd: 0,
-      selectedModel: 'Senko_Normals',
-      mouseTracking: true,
-      disableAutoAnimations: true,
+      selectedModel: 'cat-white',
+      live2dSettings: {
+        enableMouseTracking: true,
+        disableAutoAnimations: true,
+        scale: 1.2,
+        position: {
+          x: 0.95,
+          y: 1.0
+        }
+      },
       autoLocation: true,
       manualLocation: {
         province: '',
@@ -419,6 +470,13 @@ export default defineComponent({
             settings.value.apiPort = Number(config.apiPort);
             settings.value.apiHost = String(config.apiHost);
             settings.value.desktopHwnd = Number(config.desktopHwnd || 0);
+            settings.value.selectedModel = config.selectedModel || 'cat-white';
+            settings.value.live2dSettings = config.live2dSettings || {
+              enableMouseTracking: true,
+              disableAutoAnimations: true,
+              scale: 1.2,
+              position: { x: 0.95, y: 1.0 }
+            };
             settings.value.autoLocation = config.autoLocation !== false;
             settings.value.manualLocation = config.manualLocation || {
               province: '',
@@ -434,8 +492,7 @@ export default defineComponent({
               apiHost: String(config.apiHost),
               desktopHwnd: Number(config.desktopHwnd || 0),
               selectedModel: settings.value.selectedModel,
-              mouseTracking: settings.value.mouseTracking,
-              disableAutoAnimations: settings.value.disableAutoAnimations,
+              live2dSettings: { ...settings.value.live2dSettings },
               autoLocation: Boolean(settings.value.autoLocation),
               manualLocation: {
                 province: String(settings.value.manualLocation?.province || ''),
@@ -447,25 +504,11 @@ export default defineComponent({
             console.log('设置已加载:', config);
           }
 
-          // 加载Live2D相关设置
+          // 加载Live2D模型列表
           const live2dConfig = await (window as any).electronAPI.readLive2DConfig();
           if (live2dConfig) {
             // 加载可用模型列表
             availableModels.value = live2dConfig.models || [];
-
-            // 设置当前选中的模型
-            settings.value.selectedModel = live2dConfig.default || 'Senko_Normals';
-
-            // 加载其他Live2D设置
-            if (live2dConfig.settings) {
-              settings.value.mouseTracking = live2dConfig.settings.enableMouseTracking !== false;
-              settings.value.disableAutoAnimations = live2dConfig.settings.disableAutoAnimations !== false;
-            }
-
-            // 更新原始配置中的Live2D部分
-            originalConfig.value.selectedModel = settings.value.selectedModel;
-            originalConfig.value.mouseTracking = settings.value.mouseTracking;
-            originalConfig.value.disableAutoAnimations = settings.value.disableAutoAnimations;
           }
         } catch (error) {
           console.error('加载设置失败:', error);
@@ -526,6 +569,8 @@ export default defineComponent({
                   // showMessage('后端同步失败，但配置已保存', 'warning', 2000);
                 } else {
                   console.log('后端地理位置配置同步成功');
+                  // 调用home.vue中的refreshWallpaper方法刷新壁纸
+                  refreshWallpaperAfterLocationChange();
                 }
               }).catch(error => {
                 console.error('异步通知后端时发生错误:', error);
@@ -558,13 +603,20 @@ export default defineComponent({
           // 确认重置
           settings.value = {
             enableLive2D: false,
-            mouseTracking: true,
-            disableAutoAnimations: true,
             wallpaperMode: '0',
             apiPort: 9000,
             apiHost: 'localhost',
             desktopHwnd: 0,
-            selectedModel: 'Senko_Normals',
+            selectedModel: 'cat-white',
+            live2dSettings: {
+              enableMouseTracking: true,
+              disableAutoAnimations: true,
+              scale: 1.2,
+              position: {
+                x: 0.95,
+                y: 1.0
+              }
+            },
             autoLocation: true,
             manualLocation: {
               province: '',

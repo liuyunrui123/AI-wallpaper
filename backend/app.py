@@ -98,7 +98,7 @@ def get_wallpaper_path(filename) -> str:
     # filename = get_wallpaper_filename_by_prompts(prompt)
     return os.path.join(app.config['WALLPAPER_DIR'], filename)
 
-def make_new_wallpaper(time_mood, weather_key):
+def make_new_wallpaper(time_mood, weather_key, notify_frontend=True):
     global CACHE, last_time_mood, last_weather, last_trigger_time
     now = datetime.datetime.now()
     last_time_mood = time_mood
@@ -110,11 +110,13 @@ def make_new_wallpaper(time_mood, weather_key):
     local_path = get_wallpaper_path(filename)
     if os.path.exists(local_path):
         logging.info(f"[make_new_wallpaper] 已存在壁纸文件: {local_path}")
-        socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
+        if notify_frontend:
+            socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
         return True, prompt, filename
     ret = download_wallpaper(prompt, local_path, max_retries=3)
     if ret == True:
-        socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
+        if notify_frontend:
+            socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
         return True, prompt, filename
     return False, prompt, filename
 
@@ -183,11 +185,11 @@ def api_set_location_config():
         # 设置配置
         if set_location_config(config):
             # 立即更新缓存以应用新的位置设置
-            update_cache()
-            time_mood = CACHE['time_mood']
-            weather_key = CACHE['weather_key']
-            logging.info(f"[api_set_location_config] 立即更新壁纸: {time_mood}, {weather_key}")
-            make_new_wallpaper(time_mood, weather_key)
+            # update_cache()
+            # time_mood = CACHE['time_mood']
+            # weather_key = CACHE['weather_key']
+            # logging.info(f"[api_set_location_config] 立即更新壁纸: {time_mood}, {weather_key}")
+            # make_new_wallpaper(time_mood, weather_key)
             return jsonify({'success': True, 'message': '地理位置配置保存成功'})
         else:
             return jsonify({'error': '保存配置失败'}), 500
@@ -279,7 +281,7 @@ def refresh_wallpaper():
         time_mood = CACHE['time_mood']
         weather_key = CACHE['weather_key']
         logging.info(f"[refresh_wallpaper] 手动生成新壁纸: {time_mood}, {weather_key}")
-        ret, prompt, filename = make_new_wallpaper(time_mood, weather_key)
+        ret, prompt, filename = make_new_wallpaper(time_mood, weather_key, notify_frontend=False)
         if ret == True:
             logging.info(f"[refresh_wallpaper] 新壁纸生成成功: {filename}")
             return jsonify({

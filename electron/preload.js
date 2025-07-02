@@ -8,14 +8,17 @@ contextBridge.exposeInMainWorld('api', {
     generateImage: (prompt) => ipcRenderer.invoke('generate-image', prompt)
 });
 
+// 同步获取配置信息
+const appConfig = ipcRenderer.sendSync('get-app-config-sync');
+
 contextBridge.exposeInMainWorld('electronAPI', {
-    isWallpaperMode: process.env.WALLPAPER_MODE === '1',
+    isWallpaperMode: appConfig?.wallpaperMode === '1',
     version: pkg.version,
-    port: process.env.FLASK_API_PORT || '9000',
-    host: process.env.FLASK_API_HOST || 'localhost',
+    port: String(appConfig?.apiPort || 9000),
+    host: String(appConfig?.apiHost || 'localhost'),
     exitWallpaper: () => ipcRenderer.send('exit-wallpaper'),
     restartApp: () => ipcRenderer.send('restart-app'),
-    enableLive2D: process.env.ENABLE_LIVE2D === '1', // 直接同步注入
+    enableLive2D: Boolean(appConfig?.enableLive2D), // 直接同步注入
     getResourcePath: (relativePath) => {
         // 获取资源目录路径
         const resourcesPath = process.resourcesPath || path.join(__dirname, '../resources');
