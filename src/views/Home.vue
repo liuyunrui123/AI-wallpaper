@@ -149,6 +149,48 @@ export default defineComponent({
       }
     };
 
+    // 同步地理位置配置到后端
+    const syncLocationConfigToBackend = async () => {
+      try {
+        // 检查是否在Electron环境中
+        if ((window as any).electronAPI) {
+          frontendLog('开始同步地理位置配置到后端...');
+
+          // 从配置文件读取地理位置设置
+          const config = await (window as any).electronAPI.getAppConfig();
+          if (config) {
+            const locationData = {
+              auto_location: Boolean(config.autoLocation),
+              manual_location: {
+                province: String(config.manualLocation?.province || ''),
+                city: String(config.manualLocation?.city || ''),
+                county: String(config.manualLocation?.county || '')
+              }
+            };
+
+            const response = await axios.post(`${API_BASE}/location-config`, locationData, {
+              timeout: 5000 // 5秒超时
+            });
+
+            if (response.data.success) {
+              frontendLog('地理位置配置同步成功');
+              console.log('地理位置配置同步成功:', locationData);
+            } else {
+              console.error('地理位置配置同步失败:', response.data.error);
+              frontendLog('地理位置配置同步失败: ' + response.data.error);
+            }
+          } else {
+            frontendLog('无法读取应用配置，跳过地理位置配置同步');
+          }
+        } else {
+          console.log('非Electron环境，跳过地理位置配置同步');
+        }
+      } catch (error) {
+        console.error('同步地理位置配置时发生错误:', error);
+        frontendLog('同步地理位置配置时发生错误: ' + error);
+      }
+    };
+
     const exitWallpaper = () => {
       frontendLog('退出壁纸按钮被点击');
       // 通过Electron IPC退出
@@ -224,6 +266,10 @@ export default defineComponent({
       const ready = await waitForBackendReady();
       frontendLog('后端服务就绪: ' + ready);
       if (!ready) return;
+
+      // 同步地理位置配置到后端
+      await syncLocationConfigToBackend();
+
       fetchWallpaper();
       // 连接socket.io
       socket = io(SOCKET_BASE);
