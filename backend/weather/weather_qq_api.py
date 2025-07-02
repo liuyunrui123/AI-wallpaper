@@ -15,6 +15,8 @@ def get_qq_weather(province, city, county):
         data = resp.json()
         if data.get("status") == 200:
             observe = data["data"].get("observe", {})
+            if observe.get("weather") == "" and observe.get("update_time") == "":
+                return {"error": "天气信息获取失败"}
             return {
                 "weather": observe.get("weather", "未知"),
                 "temperature": observe.get("degree", "--") + "°C",

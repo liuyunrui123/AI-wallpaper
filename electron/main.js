@@ -8,21 +8,106 @@ const { logToAll } = require('./log');
 // 强制切换 cwd，保证双击和命令行启动一致
 process.chdir(process.resourcesPath);
 
-// 读取配置文件中的 DESKTOP_HWND
-let desktopHwnd = 0;
-// 读取wallpaper_config.json配置自动设置环境变量
-const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
-let enableLive2D = false;
-if (fs.existsSync(configPath)) {
-    try {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+// 配置管理模块
+class ConfigManager {
+    constructor() {
+        this.configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
+        this.defaultConfig = {
+            wallpaperMode: '0',
+            enableLive2D: false,
+            apiPort: 9000,
+            apiHost: 'localhost',
+            desktopHwnd: 0,
+            selectedModel: 'Senko_Normals',
+            mouseTracking: true,
+            disableAutoAnimations: true,
+            autoLocation: true,
+            manualLocation: {
+                province: '',
+                city: '',
+                county: ''
+            }
+        };
+    }
+
+    // 读取配置文件
+    readConfig() {
+        try {
+            if (fs.existsSync(this.configPath)) {
+                const configData = fs.readFileSync(this.configPath, 'utf-8');
+                const config = JSON.parse(configData);
+                // 合并默认配置和读取的配置
+                return { ...this.defaultConfig, ...config };
+            } else {
+                console.log('配置文件不存在，使用默认配置');
+                return { ...this.defaultConfig };
+            }
+        } catch (error) {
+            console.error('读取配置文件失败:', error);
+            return { ...this.defaultConfig };
+        }
+    }
+
+    // 保存配置文件
+    saveConfig(config) {
+        try {
+            const configData = { ...this.defaultConfig, ...config };
+            fs.writeFileSync(this.configPath, JSON.stringify(configData, null, 2), 'utf-8');
+            console.log('配置文件保存成功:', configData);
+
+            // 保存Live2D相关配置
+            this.saveLive2DConfig(configData);
+
+            // 更新环境变量
+            this.setEnvironmentVariables(configData);
+
+            return { success: true, message: '配置保存成功', config: configData };
+        } catch (error) {
+            console.error('保存配置文件失败:', error);
+            return { success: false, message: '配置保存失败: ' + error.message };
+        }
+    }
+
+    // 保存Live2D配置
+    saveLive2DConfig(config) {
+        if (config.selectedModel || config.mouseTracking !== undefined || config.disableAutoAnimations !== undefined) {
+            try {
+                const live2dConfigPath = path.join(process.resourcesPath, 'static', 'live2d', 'models.json');
+                if (fs.existsSync(live2dConfigPath)) {
+                    const live2dConfigData = JSON.parse(fs.readFileSync(live2dConfigPath, 'utf-8'));
+
+                    // 更新默认模型
+                    if (config.selectedModel) {
+                        live2dConfigData.default = config.selectedModel;
+                    }
+
+                    // 更新Live2D设置
+                    if (!live2dConfigData.settings) {
+                        live2dConfigData.settings = {};
+                    }
+
+                    if (config.mouseTracking !== undefined) {
+                        live2dConfigData.settings.enableMouseTracking = config.mouseTracking;
+                    }
+
+                    if (config.disableAutoAnimations !== undefined) {
+                        live2dConfigData.settings.disableAutoAnimations = config.disableAutoAnimations;
+                    }
+
+                    fs.writeFileSync(live2dConfigPath, JSON.stringify(live2dConfigData, null, 2), 'utf-8');
+                    console.log('Live2D配置保存成功:', live2dConfigData);
+                }
+            } catch (live2dError) {
+                console.error('保存Live2D配置失败:', live2dError);
+            }
+        }
+    }
+
+    // 设置环境变量
+    setEnvironmentVariables(config) {
         if (config.wallpaperMode) {
             process.env.WALLPAPER_MODE = config.wallpaperMode;
         }
-        if (config.desktopHwnd && Number(config.desktopHwnd) !== 0) {
-            desktopHwnd = Number(config.desktopHwnd);
-        }
-        // 允许配置 FLASK_API_PORT 和 FLASK_API_HOST
         if (config.apiPort) {
             process.env.FLASK_API_PORT = String(config.apiPort);
         }
@@ -32,10 +117,19 @@ if (fs.existsSync(configPath)) {
         if (config.enableLive2D !== undefined) {
             process.env.ENABLE_LIVE2D = config.enableLive2D ? '1' : '0';
         }
-    } catch (e) {
-        console.error('读取wallpaper_config.json失败:', e);
     }
 }
+
+// 创建配置管理器实例
+const configManager = new ConfigManager();
+
+// 读取配置并设置环境变量
+const appConfig = configManager.readConfig();
+configManager.setEnvironmentVariables(appConfig);
+
+// 从配置中获取需要的变量
+let desktopHwnd = Number(appConfig.desktopHwnd) || 0;
+let enableLive2D = appConfig.enableLive2D || false;
 
 let flaskProcess = null;
 let mainWindow = null;
@@ -417,46 +511,7 @@ if (!gotTheLock) {
         // 读取应用配置文件
         ipcMain.handle('get-app-config', () => {
             try {
-                const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
-                if (fs.existsSync(configPath)) {
-                    const configData = fs.readFileSync(configPath, 'utf-8');
-                    const config = JSON.parse(configData);
-
-                    return {
-                        wallpaperMode: config.wallpaperMode || '0',
-                        enableLive2D: config.enableLive2D || false,
-                        apiPort: parseInt(config.apiPort) || 9000,
-                        apiHost: config.apiHost || 'localhost',
-                        desktopHwnd: config.desktopHwnd || 0,
-                        selectedModel: config.selectedModel || 'Senko_Normals',
-                        mouseTracking: config.mouseTracking !== false,
-                        disableAutoAnimations: config.disableAutoAnimations !== false,
-                        autoLocation: config.autoLocation !== false,
-                        manualLocation: config.manualLocation || {
-                            province: '',
-                            city: '',
-                            county: ''
-                        }
-                    };
-                } else {
-                    // 返回默认配置
-                    return {
-                        wallpaperMode: '0',
-                        enableLive2D: false,
-                        apiPort: 9000,
-                        apiHost: 'localhost',
-                        desktopHwnd: 0,
-                        selectedModel: 'Senko_Normals',
-                        mouseTracking: true,
-                        disableAutoAnimations: true,
-                        autoLocation: true,
-                        manualLocation: {
-                            province: '',
-                            city: '',
-                            county: ''
-                        }
-                    };
-                }
+                return configManager.readConfig();
             } catch (error) {
                 console.error('Failed to read app config:', error);
                 return null;
@@ -466,83 +521,18 @@ if (!gotTheLock) {
         // 保存应用配置文件
         ipcMain.handle('save-app-config', (event, config) => {
             try {
-                const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
-                const configData = {
-                    wallpaperMode: config.wallpaperMode || '0',
-                    enableLive2D: config.enableLive2D || false,
-                    apiPort: parseInt(config.apiPort) || 9000,
-                    apiHost: config.apiHost || 'localhost',
-                    desktopHwnd: config.desktopHwnd || 0,
-                    selectedModel: config.selectedModel || 'Senko_Normals',
-                    mouseTracking: config.mouseTracking !== false,
-                    disableAutoAnimations: config.disableAutoAnimations !== false,
-                    autoLocation: config.autoLocation !== false,
-                    manualLocation: config.manualLocation || {
-                        province: '',
-                        city: '',
-                        county: ''
-                    }
-                };
+                const result = configManager.saveConfig(config);
 
-                fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
-                console.log('App config saved:', configData);
-                logToAll('应用配置已保存', 'INFO', 'electron');
+                if (result.success) {
+                    logToAll('应用配置已保存', 'INFO', 'electron');
 
-                // 如果有Live2D相关配置，也保存到Live2D配置文件
-                if (config.selectedModel || config.mouseTracking !== undefined || config.disableAutoAnimations !== undefined) {
-                    try {
-                        const live2dConfigPath = path.join(process.resourcesPath, 'static', 'live2d', 'models.json');
-                        if (fs.existsSync(live2dConfigPath)) {
-                            const live2dConfigData = JSON.parse(fs.readFileSync(live2dConfigPath, 'utf-8'));
-
-                            // 更新默认模型
-                            if (config.selectedModel) {
-                                live2dConfigData.default = config.selectedModel;
-                            }
-
-                            // 更新Live2D设置
-                            if (!live2dConfigData.settings) {
-                                live2dConfigData.settings = {};
-                            }
-
-                            if (config.mouseTracking !== undefined) {
-                                live2dConfigData.settings.enableMouseTracking = config.mouseTracking;
-                            }
-
-                            if (config.disableAutoAnimations !== undefined) {
-                                live2dConfigData.settings.disableAutoAnimations = config.disableAutoAnimations;
-                            }
-
-                            fs.writeFileSync(live2dConfigPath, JSON.stringify(live2dConfigData, null, 2), 'utf-8');
-                            console.log('Live2D config saved:', live2dConfigData);
-                        }
-                    } catch (live2dError) {
-                        console.error('Failed to save Live2D config:', live2dError);
-                    }
+                    // 通知所有窗口配置已更新
+                    BrowserWindow.getAllWindows().forEach(window => {
+                        window.webContents.send('config-updated', result.config);
+                    });
                 }
 
-                // 更新环境变量以即时生效
-                process.env.WALLPAPER_MODE = configData.wallpaperMode;
-                process.env.ENABLE_LIVE2D = configData.enableLive2D ? '1' : '0';
-                process.env.FLASK_API_PORT = String(configData.apiPort);
-                process.env.FLASK_API_HOST = configData.apiHost;
-
-                // 通知所有窗口配置已更新
-                BrowserWindow.getAllWindows().forEach(window => {
-                    window.webContents.send('config-updated', {
-                        enableLive2D: configData.enableLive2D,
-                        wallpaperMode: configData.wallpaperMode,
-                        apiPort: configData.apiPort,
-                        apiHost: configData.apiHost,
-                        selectedModel: configData.selectedModel,
-                        mouseTracking: configData.mouseTracking,
-                        disableAutoAnimations: configData.disableAutoAnimations,
-                        autoLocation: configData.autoLocation,
-                        manualLocation: configData.manualLocation
-                    });
-                });
-
-                return { success: true, message: '配置保存成功' };
+                return result;
             } catch (error) {
                 console.error('Failed to save app config:', error);
                 logToAll('保存应用配置失败: ' + error.message, 'ERROR', 'electron');

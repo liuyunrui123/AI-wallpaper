@@ -205,6 +205,7 @@ export default defineComponent({
       wallpaperMode: '0',
       apiPort: 9000,
       apiHost: 'localhost',
+      desktopHwnd: 0,
       selectedModel: 'Senko_Normals',
       autoLocation: true,
       manualLocation: {
@@ -282,6 +283,7 @@ export default defineComponent({
         enableLive2D: Boolean(settings.value.enableLive2D),
         apiPort: Number(settings.value.apiPort),
         apiHost: String(settings.value.apiHost),
+        desktopHwnd: Number(settings.value.desktopHwnd || 0),
         selectedModel: String(settings.value.selectedModel),
         mouseTracking: Boolean(settings.value.mouseTracking),
         disableAutoAnimations: Boolean(settings.value.disableAutoAnimations),
@@ -333,6 +335,7 @@ export default defineComponent({
       enableLive2D: false,
       apiPort: 9000,
       apiHost: 'localhost',
+      desktopHwnd: 0,
       selectedModel: 'Senko_Normals',
       mouseTracking: true,
       disableAutoAnimations: true,
@@ -415,6 +418,7 @@ export default defineComponent({
             settings.value.wallpaperMode = config.wallpaperMode;
             settings.value.apiPort = Number(config.apiPort);
             settings.value.apiHost = String(config.apiHost);
+            settings.value.desktopHwnd = Number(config.desktopHwnd || 0);
             settings.value.autoLocation = config.autoLocation !== false;
             settings.value.manualLocation = config.manualLocation || {
               province: '',
@@ -428,6 +432,7 @@ export default defineComponent({
               enableLive2D: config.enableLive2D,
               apiPort: Number(config.apiPort),
               apiHost: String(config.apiHost),
+              desktopHwnd: Number(config.desktopHwnd || 0),
               selectedModel: settings.value.selectedModel,
               mouseTracking: settings.value.mouseTracking,
               disableAutoAnimations: settings.value.disableAutoAnimations,
@@ -558,6 +563,7 @@ export default defineComponent({
             wallpaperMode: '0',
             apiPort: 9000,
             apiHost: 'localhost',
+            desktopHwnd: 0,
             selectedModel: 'Senko_Normals',
             autoLocation: true,
             manualLocation: {

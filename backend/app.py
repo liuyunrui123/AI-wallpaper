@@ -55,14 +55,20 @@ app.config['WALLPAPER_DIR'] = STATIC_WALLPAPER_DIR
 DEFAULT_WALLPAPER = "default.jpg"
 DEFAULT_WALLPAPER_PATH = os.path.join(app.config['WALLPAPER_DIR'], DEFAULT_WALLPAPER)
 
-# 程序启动时只获取一次位置
-ret_location = get_location_by_ip(timeout=1)
-if 'error' in ret_location:
-    logging.error(f"[location] 获取位置失败: {ret_location['error']}")
-else:
-    logging.info(f"[location] 获取位置成功: {ret_location}")
-LOCATION_CACHE = ret_location
-first_run = True  # 用于标记是否首次运行
+
+LOCATION_CACHE = {
+    'province': "",
+    'city': "",
+    'county': ""
+}
+# ret_location = get_location_by_ip(timeout=1)
+# if 'error' in ret_location:
+#     logging.error(f"[location] 获取位置失败: {ret_location['error']}")
+# else:
+#     logging.info(f"[location] 获取位置成功: {ret_location}")
+# LOCATION_CACHE = ret_location
+
+# first_run = True  # 用于标记是否首次运行
 
 # 全局缓存
 CACHE = {
@@ -198,6 +204,7 @@ def weather():
     city = loc.get('city', '')
     county = loc.get('county', '')
     weather_data = get_qq_weather(province, city, county)
+    logging.info(f"[/api/weather] 获取天气成功: {province}, {city}, {county}, {weather_data}")
     # 返回风力、湿度、位置
     return jsonify({
         **weather_data,
@@ -305,11 +312,13 @@ def update_cache():
         ret_location = get_location_by_ip()
         if 'error' in ret_location:
             logging.error(f"[location] 自动获取位置失败: {ret_location['error']}")
-            # 如果自动获取失败，尝试使用手动设置的位置作为备用
-            manual_loc = location_config['manual_location']
-            if manual_loc['province'] or manual_loc['city'] or manual_loc['county']:
-                logging.info(f"[location] 自动获取失败，使用手动设置的位置作为备用")
-                LOCATION_CACHE = manual_loc
+            # 当自动获取位置失败 且LOCATION_CACHE中没有缓存时，才使用手动设置的位置
+            if LOCATION_CACHE["province"] == "" and LOCATION_CACHE["city"] == "":
+                # 如果自动获取失败，尝试使用手动设置的位置作为备用
+                manual_loc = location_config['manual_location']
+                if manual_loc['province'] or manual_loc['city'] or manual_loc['county']:
+                    logging.info(f"[location] 自动获取失败，使用手动设置的位置作为备用")
+                    LOCATION_CACHE = manual_loc
             # 否则保持原有的LOCATION_CACHE不变
         else:
             logging.info(f"[location] 自动获取位置成功: {ret_location}")
