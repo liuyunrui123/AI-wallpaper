@@ -1,6 +1,16 @@
 {
-  "WALLPAPER_MODE": "1",
-  "DESKTOP_HWND": 0,
-  "FLASK_API_PORT": 9000,
-  "ENABLE_LIVE2D": "1"
+  "wallpaperMode": "1",
+  "enableLive2D": true,
+  "apiPort": 9000,
+  "apiHost": "localhost",
+  "desktopHwnd": 0,
+  "selectedModel": "cat-white",
+  "mouseTracking": true,
+  "disableAutoAnimations": true,
+  "autoLocation": true,
+  "manualLocation": {
+    "province": "",
+    "city": "",
+    "county": ""
+  }
 }

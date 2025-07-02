@@ -16,21 +16,21 @@ let enableLive2D = false;
 if (fs.existsSync(configPath)) {
     try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        if (config.WALLPAPER_MODE) {
-            process.env.WALLPAPER_MODE = config.WALLPAPER_MODE;
+        if (config.wallpaperMode) {
+            process.env.WALLPAPER_MODE = config.wallpaperMode;
         }
-        if (config.DESKTOP_HWND && Number(config.DESKTOP_HWND) !== 0) {
-            desktopHwnd = Number(config.DESKTOP_HWND);
+        if (config.desktopHwnd && Number(config.desktopHwnd) !== 0) {
+            desktopHwnd = Number(config.desktopHwnd);
         }
         // 允许配置 FLASK_API_PORT 和 FLASK_API_HOST
-        if (config.FLASK_API_PORT) {
-            process.env.FLASK_API_PORT = String(config.FLASK_API_PORT);
+        if (config.apiPort) {
+            process.env.FLASK_API_PORT = String(config.apiPort);
         }
-        if (config.FLASK_API_HOST) {
-            process.env.FLASK_API_HOST = String(config.FLASK_API_HOST);
+        if (config.apiHost) {
+            process.env.FLASK_API_HOST = String(config.apiHost);
         }
-        if (config.ENABLE_LIVE2D) {
-            process.env.ENABLE_LIVE2D = config.ENABLE_LIVE2D;
+        if (config.enableLive2D !== undefined) {
+            process.env.ENABLE_LIVE2D = config.enableLive2D ? '1' : '0';
         }
     } catch (e) {
         console.error('读取wallpaper_config.json失败:', e);
@@ -421,17 +421,21 @@ if (!gotTheLock) {
                 if (fs.existsSync(configPath)) {
                     const configData = fs.readFileSync(configPath, 'utf-8');
                     const config = JSON.parse(configData);
+
                     return {
-                        wallpaperMode: config.WALLPAPER_MODE || '0',
-                        enableLive2D: config.ENABLE_LIVE2D === '1',
-                        apiPort: parseInt(config.FLASK_API_PORT) || 9000,
-                        apiHost: config.FLASK_API_HOST || 'localhost',
-                        desktopHwnd: config.DESKTOP_HWND || 0,
-                        autoLocation: config.AUTO_LOCATION !== '0',
-                        manualLocation: {
-                            province: config.MANUAL_PROVINCE || '',
-                            city: config.MANUAL_CITY || '',
-                            county: config.MANUAL_COUNTY || ''
+                        wallpaperMode: config.wallpaperMode || '0',
+                        enableLive2D: config.enableLive2D || false,
+                        apiPort: parseInt(config.apiPort) || 9000,
+                        apiHost: config.apiHost || 'localhost',
+                        desktopHwnd: config.desktopHwnd || 0,
+                        selectedModel: config.selectedModel || 'Senko_Normals',
+                        mouseTracking: config.mouseTracking !== false,
+                        disableAutoAnimations: config.disableAutoAnimations !== false,
+                        autoLocation: config.autoLocation !== false,
+                        manualLocation: config.manualLocation || {
+                            province: '',
+                            city: '',
+                            county: ''
                         }
                     };
                 } else {
@@ -442,6 +446,9 @@ if (!gotTheLock) {
                         apiPort: 9000,
                         apiHost: 'localhost',
                         desktopHwnd: 0,
+                        selectedModel: 'Senko_Normals',
+                        mouseTracking: true,
+                        disableAutoAnimations: true,
                         autoLocation: true,
                         manualLocation: {
                             province: '',
@@ -461,15 +468,20 @@ if (!gotTheLock) {
             try {
                 const configPath = path.join(process.resourcesPath, 'wallpaper_config.json');
                 const configData = {
-                    WALLPAPER_MODE: config.wallpaperMode || '0',
-                    ENABLE_LIVE2D: config.enableLive2D ? '1' : '0',
-                    FLASK_API_PORT: parseInt(config.apiPort) || 9000,
-                    FLASK_API_HOST: config.apiHost || 'localhost',
-                    DESKTOP_HWND: config.desktopHwnd || 0,
-                    AUTO_LOCATION: config.autoLocation ? '1' : '0',
-                    MANUAL_PROVINCE: config.manualLocation?.province || '',
-                    MANUAL_CITY: config.manualLocation?.city || '',
-                    MANUAL_COUNTY: config.manualLocation?.county || ''
+                    wallpaperMode: config.wallpaperMode || '0',
+                    enableLive2D: config.enableLive2D || false,
+                    apiPort: parseInt(config.apiPort) || 9000,
+                    apiHost: config.apiHost || 'localhost',
+                    desktopHwnd: config.desktopHwnd || 0,
+                    selectedModel: config.selectedModel || 'Senko_Normals',
+                    mouseTracking: config.mouseTracking !== false,
+                    disableAutoAnimations: config.disableAutoAnimations !== false,
+                    autoLocation: config.autoLocation !== false,
+                    manualLocation: config.manualLocation || {
+                        province: '',
+                        city: '',
+                        county: ''
+                    }
                 };
 
                 fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
@@ -510,21 +522,23 @@ if (!gotTheLock) {
                 }
 
                 // 更新环境变量以即时生效
-                process.env.WALLPAPER_MODE = configData.WALLPAPER_MODE;
-                process.env.ENABLE_LIVE2D = configData.ENABLE_LIVE2D;
-                process.env.FLASK_API_PORT = String(configData.FLASK_API_PORT);
-                process.env.FLASK_API_HOST = configData.FLASK_API_HOST;
+                process.env.WALLPAPER_MODE = configData.wallpaperMode;
+                process.env.ENABLE_LIVE2D = configData.enableLive2D ? '1' : '0';
+                process.env.FLASK_API_PORT = String(configData.apiPort);
+                process.env.FLASK_API_HOST = configData.apiHost;
 
                 // 通知所有窗口配置已更新
                 BrowserWindow.getAllWindows().forEach(window => {
                     window.webContents.send('config-updated', {
-                        enableLive2D: configData.ENABLE_LIVE2D === '1',
-                        wallpaperMode: configData.WALLPAPER_MODE,
-                        apiPort: configData.FLASK_API_PORT,
-                        apiHost: configData.FLASK_API_HOST,
-                        selectedModel: config.selectedModel,
-                        mouseTracking: config.mouseTracking,
-                        disableAutoAnimations: config.disableAutoAnimations
+                        enableLive2D: configData.enableLive2D,
+                        wallpaperMode: configData.wallpaperMode,
+                        apiPort: configData.apiPort,
+                        apiHost: configData.apiHost,
+                        selectedModel: configData.selectedModel,
+                        mouseTracking: configData.mouseTracking,
+                        disableAutoAnimations: configData.disableAutoAnimations,
+                        autoLocation: configData.autoLocation,
+                        manualLocation: configData.manualLocation
                     });
                 });
 

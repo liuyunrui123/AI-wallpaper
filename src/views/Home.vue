@@ -134,10 +134,15 @@ export default defineComponent({
         frontendLog('开始强制刷新壁纸...');
         const res = await axios.post(`${API_BASE}/refresh-wallpaper`);
         console.log('强制刷新壁纸API返回:', res.data);
-        frontendLog('强制刷新壁纸成功: ' + JSON.stringify(res.data));
-
+        // 只有res.data中存在'success'key为true才是成功
+        if (!res.data.success) {
+          console.error('强制刷新壁纸失败:', res.data.error);
+          frontendLog('强制刷新壁纸失败: ' + res.data.error);
+          return;
+        }
         // 刷新成功后，重新获取壁纸数据
         await fetchWallpaper();
+        frontendLog('强制刷新壁纸成功: ' + JSON.stringify(res.data));
       } catch (error) {
         console.error('强制刷新壁纸失败:', error);
         frontendLog('强制刷新壁纸失败: ' + error);

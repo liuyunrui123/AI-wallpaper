@@ -98,20 +98,19 @@ def make_new_wallpaper(time_mood, weather_key):
     last_time_mood = time_mood
     last_weather = weather_key
     last_trigger_time = now.timestamp()
-    logging.info(f"[wallpaper_monitor] 检测到壁纸条件变化、首次生成或整点触发: {time_mood}, {weather_key}")
     prompt = make_draw_prompt(time_mood, weather_key)
     CACHE['prompt'] = prompt
     filename = get_wallpaper_filename_by_prompts(prompt)
     local_path = get_wallpaper_path(filename)
     if os.path.exists(local_path):
-        logging.info(f"[wallpaper_monitor] 已存在壁纸文件: {local_path}")
+        logging.info(f"[make_new_wallpaper] 已存在壁纸文件: {local_path}")
         socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
-        return True
+        return True, prompt, filename
     ret = download_wallpaper(prompt, local_path, max_retries=3)
     if ret == True:
         socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
-        return True
-    return False
+        return True, prompt, filename
+    return False, prompt, filename
 
 def get_location_config():
     """获取当前地理位置配置"""
@@ -181,6 +180,7 @@ def api_set_location_config():
             update_cache()
             time_mood = CACHE['time_mood']
             weather_key = CACHE['weather_key']
+            logging.info(f"[api_set_location_config] 立即更新壁纸: {time_mood}, {weather_key}")
             make_new_wallpaper(time_mood, weather_key)
             return jsonify({'success': True, 'message': '地理位置配置保存成功'})
         else:
@@ -271,27 +271,10 @@ def refresh_wallpaper():
         update_cache()
         time_mood = CACHE['time_mood']
         weather_key = CACHE['weather_key']
-
-        # 参考wallpaper_monitor的逻辑
-        prompt = make_draw_prompt(time_mood, weather_key)
-        CACHE['prompt'] = prompt
-        filename = get_wallpaper_filename_by_prompts(prompt)
-        local_path = get_wallpaper_path(filename)
-
-        if os.path.exists(local_path):
-            logging.info(f"[refresh_wallpaper] 已存在壁纸文件: {local_path}")
-            return jsonify({
-                'success': True,
-                'message': '壁纸已存在',
-                'filename': filename,
-                'prompt': prompt
-            })
-
-        logging.info(f"[refresh_wallpaper] 开始生成新壁纸: {prompt}")
-        ret = download_wallpaper(prompt, local_path, max_retries=3)
-
+        logging.info(f"[refresh_wallpaper] 手动生成新壁纸: {time_mood}, {weather_key}")
+        ret, prompt, filename = make_new_wallpaper(time_mood, weather_key)
         if ret == True:
-            logging.info(f"[refresh_wallpaper] 新壁纸生成成功: {local_path}")
+            logging.info(f"[refresh_wallpaper] 新壁纸生成成功: {filename}")
             return jsonify({
                 'success': True,
                 'message': '新壁纸生成成功',
@@ -300,11 +283,11 @@ def refresh_wallpaper():
             })
         else:
             logging.error(f"[refresh_wallpaper] 新壁纸生成失败")
-            return jsonify({'error': '壁纸生成失败，请稍后重试'}), 500
+            return jsonify({'success': False, 'error': '壁纸生成失败，请稍后重试'}), 500
 
     except Exception as e:
         logging.error(f"refresh_wallpaper error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False,'error': str(e)}), 500
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
@@ -417,7 +400,14 @@ def wallpaper_monitor():
             allow_on_the_hour = is_on_the_hour and (now_ts - last_trigger_time > 600)
 
             # 检测到条件变化或首次启动时生成，或整点强制触发（需10分钟间隔）
-            if time_mood != last_time_mood or weather_key != last_weather or allow_on_the_hour:
+            if time_mood != last_time_mood:
+                logging.info(f"检测到时间变化: {last_time_mood} -> {time_mood}")
+                make_new_wallpaper(time_mood, weather_key)
+            if weather_key != last_weather:
+                logging.info(f"检测到天气变化: {last_weather} -> {weather_key}")
+                make_new_wallpaper(time_mood, weather_key)
+            if allow_on_the_hour:
+                logging.info(f"整点触发壁纸更新: {now}")
                 make_new_wallpaper(time_mood, weather_key)
                 # last_time_mood = time_mood
                 # last_weather = weather_key

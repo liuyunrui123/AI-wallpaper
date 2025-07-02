@@ -97,7 +97,10 @@
     </div>
 
     <div class="settings-footer">
-      <button @click="saveSettings" class="btn-primary">保存设置</button>
+      <button @click="saveSettings" :disabled="isSaving" class="btn-primary">
+        <span v-if="isSaving">保存中...</span>
+        <span v-else>保存设置</span>
+      </button>
       <button @click="resetSettings" class="btn-secondary">重置默认</button>
       <button @click="restartApp" class="btn-warning">重启应用</button>
       <button @click="closeWindow" class="btn-secondary">关闭</button>
@@ -182,7 +185,9 @@ export default defineComponent({
           }
         };
 
-        const response = await axios.post(`${getApiBase()}/location-config`, locationData);
+        const response = await axios.post(`${getApiBase()}/location-config`, locationData, {
+          timeout: 5000 // 5秒超时
+        });
         if (response.data.success) {
           console.log('后端地理位置配置已更新');
           return true;
@@ -220,6 +225,8 @@ export default defineComponent({
       text: '',
       type: 'success' // 'success', 'warning', 'error'
     });
+
+    const isSaving = ref(false);
 
     // 自定义确认对话框状态
     const confirmDialog = ref({
@@ -340,6 +347,9 @@ export default defineComponent({
     const saveSettings = async () => {
       console.log('保存设置:', settings.value);
 
+      // 设置保存状态，禁用保存按钮
+      isSaving.value = true;
+
       if ((window as any).electronAPI) {
         try {
           // 保存应用配置
@@ -360,18 +370,26 @@ export default defineComponent({
               ...configToSave
             };
 
-            // 通知后端地理位置配置变更
-            const locationNotified = await notifyLocationConfigChange();
-            if (!locationNotified) {
-              console.warn('通知后端地理位置配置失败，但本地配置已保存');
-            }
-
+            // 立即显示保存成功消息，提升用户体验
             if (needsRestart) {
               showMessage('设置已保存！壁纸模式、API端口或API主机的更改需要重启应用才能生效。', 'warning', 5000);
             } else {
               showMessage('设置已保存！', 'success');
             }
             console.log('设置保存成功:', result.message);
+
+            // 异步通知后端地理位置配置变更，不阻塞用户界面
+            notifyLocationConfigChange().then(locationNotified => {
+              if (!locationNotified) {
+                console.warn('通知后端地理位置配置失败，但本地配置已保存');
+                // 可选：显示一个不太显眼的提示
+                // showMessage('后端同步失败，但配置已保存', 'warning', 2000);
+              } else {
+                console.log('后端地理位置配置同步成功');
+              }
+            }).catch(error => {
+              console.error('异步通知后端时发生错误:', error);
+            });
           } else {
             showMessage('保存设置失败：' + result.message, 'error');
             console.error('设置保存失败:', result.message);
@@ -379,9 +397,13 @@ export default defineComponent({
         } catch (error: any) {
           console.error('保存设置时发生错误:', error);
           showMessage('保存设置时发生错误：' + (error.message || error), 'error');
+        } finally {
+          // 无论成功还是失败，都重置保存状态
+          isSaving.value = false;
         }
       } else {
         showMessage('无法访问Electron API，请确保在Electron环境中运行', 'error');
+        isSaving.value = false;
       }
     };
 
@@ -444,6 +466,7 @@ export default defineComponent({
       availableModels,
       message,
       confirmDialog,
+      isSaving,
       saveSettings,
       resetSettings,
       restartApp,
@@ -596,6 +619,20 @@ export default defineComponent({
 .btn-warning:hover {
   background: #F57C00;
   transform: translateY(-2px);
+}
+
+/* 禁用状态样式 */
+.btn-primary:disabled {
+  background: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.6;
+}
+
+.btn-primary:disabled:hover {
+  background: #cccccc;
+  transform: none;
 }
 
 /* 消息提示样式 */
