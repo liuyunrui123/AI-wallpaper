@@ -42,6 +42,27 @@
       </div>
 
       <div class="settings-section">
+        <h2>地理位置设置</h2>
+        <div class="setting-item">
+          <label>自动获取位置</label>
+          <input type="checkbox" v-model="settings.autoLocation" />
+          <span class="setting-description">启用后将通过IP自动获取地理位置</span>
+        </div>
+        <div class="setting-item" v-if="!settings.autoLocation">
+          <label>省份</label>
+          <input type="text" v-model="settings.manualLocation.province" placeholder="请输入省份，如：北京" />
+        </div>
+        <div class="setting-item" v-if="!settings.autoLocation">
+          <label>城市</label>
+          <input type="text" v-model="settings.manualLocation.city" placeholder="请输入城市，如：北京" />
+        </div>
+        <div class="setting-item" v-if="!settings.autoLocation">
+          <label>区县</label>
+          <input type="text" v-model="settings.manualLocation.county" placeholder="请输入区县，如：朝阳区" />
+        </div>
+      </div>
+
+      <div class="settings-section">
         <h2>API 设置</h2>
         <div class="setting-item">
           <label>Flask API 端口 <span class="restart-required">*需重启</span></label>
@@ -86,6 +107,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue';
+import axios from 'axios';
 
 export default defineComponent({
   name: 'Settings',
@@ -98,7 +120,13 @@ export default defineComponent({
       wallpaperMode: '0',
       apiPort: 9000,
       apiHost: 'localhost',
-      selectedModel: 'Senko_Normals'
+      selectedModel: 'Senko_Normals',
+      autoLocation: true,
+      manualLocation: {
+        province: '',
+        city: '',
+        county: ''
+      }
     });
 
     // 可用的Live2D模型列表
@@ -110,6 +138,64 @@ export default defineComponent({
       description: string;
     }>>([]);
 
+    // API基础URL
+    const getApiBase = () => {
+      if (process.env.NODE_ENV === 'development') {
+        return '/api';
+      } else {
+        return `http://${settings.value.apiHost}:${settings.value.apiPort}/api`;
+      }
+    };
+
+    // 创建可序列化的配置对象
+    const createSerializableConfig = () => {
+      // 使用JSON.parse(JSON.stringify())来确保对象完全可序列化
+      const rawConfig = {
+        wallpaperMode: String(settings.value.wallpaperMode),
+        enableLive2D: Boolean(settings.value.enableLive2D),
+        apiPort: Number(settings.value.apiPort),
+        apiHost: String(settings.value.apiHost),
+        selectedModel: String(settings.value.selectedModel),
+        mouseTracking: Boolean(settings.value.mouseTracking),
+        disableAutoAnimations: Boolean(settings.value.disableAutoAnimations),
+        autoLocation: Boolean(settings.value.autoLocation),
+        manualLocation: {
+          province: String(settings.value.manualLocation?.province || ''),
+          city: String(settings.value.manualLocation?.city || ''),
+          county: String(settings.value.manualLocation?.county || '')
+        }
+      };
+
+      // 确保返回的是普通对象，没有Vue响应式代理
+      return JSON.parse(JSON.stringify(rawConfig));
+    };
+
+    // 通知后端地理位置配置变更
+    const notifyLocationConfigChange = async () => {
+      try {
+        const locationData = {
+          auto_location: Boolean(settings.value.autoLocation),
+          manual_location: {
+            province: String(settings.value.manualLocation?.province || ''),
+            city: String(settings.value.manualLocation?.city || ''),
+            county: String(settings.value.manualLocation?.county || '')
+          }
+        };
+
+        const response = await axios.post(`${getApiBase()}/location-config`, locationData);
+        if (response.data.success) {
+          console.log('后端地理位置配置已更新');
+          return true;
+        } else {
+          console.error('通知后端地理位置配置失败:', response.data.error);
+          return false;
+        }
+      } catch (error) {
+        console.error('通知后端地理位置配置时发生错误:', error);
+        return false;
+      }
+    };
+
 
 
     // 存储原始配置用于比较
@@ -120,7 +206,13 @@ export default defineComponent({
       apiHost: 'localhost',
       selectedModel: 'Senko_Normals',
       mouseTracking: true,
-      disableAutoAnimations: true
+      disableAutoAnimations: true,
+      autoLocation: true,
+      manualLocation: {
+        province: '',
+        city: '',
+        county: ''
+      }
     });
 
     const message = ref({
@@ -192,6 +284,12 @@ export default defineComponent({
             settings.value.wallpaperMode = config.wallpaperMode;
             settings.value.apiPort = Number(config.apiPort);
             settings.value.apiHost = String(config.apiHost);
+            settings.value.autoLocation = config.autoLocation !== false;
+            settings.value.manualLocation = config.manualLocation || {
+              province: '',
+              city: '',
+              county: ''
+            };
 
             // 同时更新原始配置用于后续比较
             originalConfig.value = {
@@ -201,7 +299,13 @@ export default defineComponent({
               apiHost: String(config.apiHost),
               selectedModel: settings.value.selectedModel,
               mouseTracking: settings.value.mouseTracking,
-              disableAutoAnimations: settings.value.disableAutoAnimations
+              disableAutoAnimations: settings.value.disableAutoAnimations,
+              autoLocation: Boolean(settings.value.autoLocation),
+              manualLocation: {
+                province: String(settings.value.manualLocation?.province || ''),
+                city: String(settings.value.manualLocation?.city || ''),
+                county: String(settings.value.manualLocation?.county || '')
+              }
             };
 
             console.log('设置已加载:', config);
@@ -239,15 +343,7 @@ export default defineComponent({
       if ((window as any).electronAPI) {
         try {
           // 保存应用配置
-          const configToSave = {
-            wallpaperMode: settings.value.wallpaperMode,
-            enableLive2D: settings.value.enableLive2D,
-            apiPort: Number(settings.value.apiPort),
-            apiHost: String(settings.value.apiHost),
-            selectedModel: settings.value.selectedModel,
-            mouseTracking: settings.value.mouseTracking,
-            disableAutoAnimations: settings.value.disableAutoAnimations
-          };
+          const configToSave = createSerializableConfig();
 
           const result = await (window as any).electronAPI.saveAppConfig(configToSave);
 
@@ -260,7 +356,15 @@ export default defineComponent({
             );
 
             // 更新原始配置为当前保存的配置
-            originalConfig.value = { ...configToSave };
+            originalConfig.value = {
+              ...configToSave
+            };
+
+            // 通知后端地理位置配置变更
+            const locationNotified = await notifyLocationConfigChange();
+            if (!locationNotified) {
+              console.warn('通知后端地理位置配置失败，但本地配置已保存');
+            }
 
             if (needsRestart) {
               showMessage('设置已保存！壁纸模式、API端口或API主机的更改需要重启应用才能生效。', 'warning', 5000);
@@ -294,7 +398,13 @@ export default defineComponent({
             wallpaperMode: '0',
             apiPort: 9000,
             apiHost: 'localhost',
-            selectedModel: 'Senko_Normals'
+            selectedModel: 'Senko_Normals',
+            autoLocation: true,
+            manualLocation: {
+              province: '',
+              city: '',
+              county: ''
+            }
           };
           console.log('设置已重置为默认值');
         }
@@ -430,6 +540,13 @@ export default defineComponent({
 .setting-item input[type="checkbox"] {
   min-width: auto;
   transform: scale(1.2);
+}
+
+.setting-description {
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 10px;
+  font-style: italic;
 }
 
 .settings-footer {

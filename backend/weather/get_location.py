@@ -1,9 +1,9 @@
 import requests
 
-def get_location_by_ip(ip=''):
+def get_location_by_ip(ip='', timeout=5):
     url = 'https://api.vore.top/api/IPdata?ip=' + ip
     try:
-        resp = requests.get(url, timeout=5)
+        resp = requests.get(url, timeout=timeout)
         data = resp.json()
         if data.get('code') == 200:
             ipdata = data.get('ipdata', {})

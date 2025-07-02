@@ -11,6 +11,7 @@ import io
 import logging
 from ai_image.make_prompt import make_draw_prompt, get_time_mood, get_weather_key
 from ai_image.ai_image_api import download_wallpaper
+import datetime
 # import gevent
 # print("gevent version:", gevent.__version__)
 
@@ -37,6 +38,16 @@ else:
 STATIC_WALLPAPER_DIR = os.path.join(BASE_DIR, 'static', 'wallpapers')
 os.makedirs(STATIC_WALLPAPER_DIR, exist_ok=True)
 
+# 全局变量存储前端下发的位置配置
+FRONTEND_LOCATION_CONFIG = {
+    'auto_location': True,
+    'manual_location': {
+        'province': '',
+        'city': '',
+        'county': ''
+    }
+}
+
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'))
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent')
 app.config['WALLPAPER_DIR'] = STATIC_WALLPAPER_DIR
@@ -45,7 +56,7 @@ DEFAULT_WALLPAPER = "default.jpg"
 DEFAULT_WALLPAPER_PATH = os.path.join(app.config['WALLPAPER_DIR'], DEFAULT_WALLPAPER)
 
 # 程序启动时只获取一次位置
-ret_location = get_location_by_ip()
+ret_location = get_location_by_ip(timeout=1)
 if 'error' in ret_location:
     logging.error(f"[location] 获取位置失败: {ret_location['error']}")
 else:
@@ -64,6 +75,11 @@ CACHE = {
     'county': ''
 }
 
+# 记录上一次的时间段和天气
+last_time_mood = None
+last_weather = None
+last_trigger_time = 0  # 记录上一次壁纸更新的时间戳
+
 # def get_wallpaper_filename(time_mood: str, weather_key: str) -> str:
 #     return f"{time_mood}_{weather_key}.jpg"
 
@@ -76,10 +92,103 @@ def get_wallpaper_path(filename) -> str:
     # filename = get_wallpaper_filename_by_prompts(prompt)
     return os.path.join(app.config['WALLPAPER_DIR'], filename)
 
+def make_new_wallpaper(time_mood, weather_key):
+    global CACHE, last_time_mood, last_weather, last_trigger_time
+    now = datetime.datetime.now()
+    last_time_mood = time_mood
+    last_weather = weather_key
+    last_trigger_time = now.timestamp()
+    logging.info(f"[wallpaper_monitor] 检测到壁纸条件变化、首次生成或整点触发: {time_mood}, {weather_key}")
+    prompt = make_draw_prompt(time_mood, weather_key)
+    CACHE['prompt'] = prompt
+    filename = get_wallpaper_filename_by_prompts(prompt)
+    local_path = get_wallpaper_path(filename)
+    if os.path.exists(local_path):
+        logging.info(f"[wallpaper_monitor] 已存在壁纸文件: {local_path}")
+        socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
+        return True
+    ret = download_wallpaper(prompt, local_path, max_retries=3)
+    if ret == True:
+        socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
+        return True
+    return False
+
+def get_location_config():
+    """获取当前地理位置配置"""
+    global FRONTEND_LOCATION_CONFIG
+    return FRONTEND_LOCATION_CONFIG
+
+def set_location_config(config):
+    """设置地理位置配置（由前端下发）"""
+    global FRONTEND_LOCATION_CONFIG
+    try:
+        FRONTEND_LOCATION_CONFIG = {
+            'auto_location': config.get('auto_location', True),
+            'manual_location': {
+                'province': config.get('manual_location', {}).get('province', ''),
+                'city': config.get('manual_location', {}).get('city', ''),
+                'county': config.get('manual_location', {}).get('county', '')
+            }
+        }
+        logging.info(f"[location_config] 配置已更新: {FRONTEND_LOCATION_CONFIG}")
+        return True
+    except Exception as e:
+        logging.error(f"[location_config] 设置配置失败: {e}")
+        return False
+
 
 @app.route('/api/version', methods=['GET'])
 def version():
     return jsonify({"version": __version__})
+
+@app.route('/api/location-config', methods=['GET'])
+def api_get_location_config():
+    """获取地理位置配置"""
+    config = get_location_config()
+    return jsonify(config)
+
+@app.route('/api/location-config', methods=['POST'])
+def api_set_location_config():
+    """设置地理位置配置"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '请求数据为空'}), 400
+
+        # 验证数据格式
+        auto_location = data.get('auto_location', True)
+        manual_location = data.get('manual_location', {})
+
+        if not isinstance(auto_location, bool):
+            return jsonify({'error': 'auto_location必须是布尔值'}), 400
+
+        if not isinstance(manual_location, dict):
+            return jsonify({'error': 'manual_location必须是对象'}), 400
+
+        # 构建配置
+        config = {
+            'auto_location': auto_location,
+            'manual_location': {
+                'province': manual_location.get('province', ''),
+                'city': manual_location.get('city', ''),
+                'county': manual_location.get('county', '')
+            }
+        }
+
+        # 设置配置
+        if set_location_config(config):
+            # 立即更新缓存以应用新的位置设置
+            update_cache()
+            time_mood = CACHE['time_mood']
+            weather_key = CACHE['weather_key']
+            make_new_wallpaper(time_mood, weather_key)
+            return jsonify({'success': True, 'message': '地理位置配置保存成功'})
+        else:
+            return jsonify({'error': '保存配置失败'}), 500
+
+    except Exception as e:
+        logging.error(f"[api_set_location_config] 错误: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/weather', methods=['GET'])
 def weather():
@@ -201,22 +310,40 @@ def refresh_wallpaper():
 def static_files(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'static'), filename)
 
-# 记录上一次的时间段和天气
-last_time_mood = None
-last_weather = None
-
-
 def update_cache():
     global LOCATION_CACHE
     global CACHE
-    # if 'error' in LOCATION_CACHE:
-    #     logging.error(f"[location] 获取位置为空: {LOCATION_CACHE['error']}")
-    ret_location = get_location_by_ip()
-    if 'error' in ret_location:
-        logging.error(f"[location] 获取位置失败: {ret_location['error']}")
+
+    # 获取地理位置配置
+    location_config = get_location_config()
+
+    if location_config['auto_location']:
+        # 自动获取位置（通过IP）
+        ret_location = get_location_by_ip()
+        if 'error' in ret_location:
+            logging.error(f"[location] 自动获取位置失败: {ret_location['error']}")
+            # 如果自动获取失败，尝试使用手动设置的位置作为备用
+            manual_loc = location_config['manual_location']
+            if manual_loc['province'] or manual_loc['city'] or manual_loc['county']:
+                logging.info(f"[location] 自动获取失败，使用手动设置的位置作为备用")
+                LOCATION_CACHE = manual_loc
+            # 否则保持原有的LOCATION_CACHE不变
+        else:
+            logging.info(f"[location] 自动获取位置成功: {ret_location}")
+            LOCATION_CACHE = ret_location
     else:
-        logging.info(f"[location] 获取位置成功: {ret_location}")
-        LOCATION_CACHE = ret_location
+        # 使用手动设置的位置
+        manual_loc = location_config['manual_location']
+        if manual_loc['province'] or manual_loc['city'] or manual_loc['county']:
+            logging.info(f"[location] 使用手动设置的位置: {manual_loc}")
+            LOCATION_CACHE = manual_loc
+        else:
+            logging.warning(f"[location] 手动位置为空，尝试自动获取")
+            # 如果手动位置为空，仍然尝试自动获取
+            ret_location = get_location_by_ip()
+            if 'error' not in ret_location:
+                LOCATION_CACHE = ret_location
+                logging.info(f"[location] 备用自动获取位置成功: {ret_location}")
 
     loc = LOCATION_CACHE
     province = loc.get('province', '')
@@ -266,10 +393,8 @@ def handle_disconnect():
     logging.info(f"[socketio] 客户端断开 (剩余客户端数: {connected_clients})")
 
 def wallpaper_monitor():
-    import datetime
-    global CACHE, last_time_mood, last_weather
+    global CACHE, last_time_mood, last_weather, last_trigger_time
     check_interval = 60  # 检查间隔时间（秒）
-    last_trigger_time = 0  # 记录上一次壁纸更新的时间戳
     try:
         while True:
             if not enabled_push.is_set():
@@ -293,22 +418,23 @@ def wallpaper_monitor():
 
             # 检测到条件变化或首次启动时生成，或整点强制触发（需10分钟间隔）
             if time_mood != last_time_mood or weather_key != last_weather or allow_on_the_hour:
-                last_time_mood = time_mood
-                last_weather = weather_key
-                last_trigger_time = now_ts
-                logging.info(f"[wallpaper_monitor] 检测到壁纸条件变化、首次生成或整点触发: {time_mood}, {weather_key}")
-                prompt = make_draw_prompt(time_mood, weather_key)
-                CACHE['prompt'] = prompt
-                filename = get_wallpaper_filename_by_prompts(prompt)
-                local_path = get_wallpaper_path(filename)
-                if os.path.exists(local_path):
-                    logging.info(f"[wallpaper_monitor] 已存在壁纸文件: {local_path}")
-                    socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
-                    time.sleep(check_interval)
-                    continue
-                ret = download_wallpaper(prompt, local_path, max_retries=3)
-                if ret == True:
-                    socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
+                make_new_wallpaper(time_mood, weather_key)
+                # last_time_mood = time_mood
+                # last_weather = weather_key
+                # last_trigger_time = now_ts
+                # logging.info(f"[wallpaper_monitor] 检测到壁纸条件变化、首次生成或整点触发: {time_mood}, {weather_key}")
+                # prompt = make_draw_prompt(time_mood, weather_key)
+                # CACHE['prompt'] = prompt
+                # filename = get_wallpaper_filename_by_prompts(prompt)
+                # local_path = get_wallpaper_path(filename)
+                # if os.path.exists(local_path):
+                #     logging.info(f"[wallpaper_monitor] 已存在壁纸文件: {local_path}")
+                #     socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
+                #     time.sleep(check_interval)
+                #     continue
+                # ret = download_wallpaper(prompt, local_path, max_retries=3)
+                # if ret == True:
+                #     socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
 
             time.sleep(check_interval)  # 每分钟检测一次
     except Exception as e:

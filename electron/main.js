@@ -426,7 +426,13 @@ if (!gotTheLock) {
                         enableLive2D: config.ENABLE_LIVE2D === '1',
                         apiPort: parseInt(config.FLASK_API_PORT) || 9000,
                         apiHost: config.FLASK_API_HOST || 'localhost',
-                        desktopHwnd: config.DESKTOP_HWND || 0
+                        desktopHwnd: config.DESKTOP_HWND || 0,
+                        autoLocation: config.AUTO_LOCATION !== '0',
+                        manualLocation: {
+                            province: config.MANUAL_PROVINCE || '',
+                            city: config.MANUAL_CITY || '',
+                            county: config.MANUAL_COUNTY || ''
+                        }
                     };
                 } else {
                     // 返回默认配置
@@ -435,7 +441,13 @@ if (!gotTheLock) {
                         enableLive2D: false,
                         apiPort: 9000,
                         apiHost: 'localhost',
-                        desktopHwnd: 0
+                        desktopHwnd: 0,
+                        autoLocation: true,
+                        manualLocation: {
+                            province: '',
+                            city: '',
+                            county: ''
+                        }
                     };
                 }
             } catch (error) {
@@ -453,7 +465,11 @@ if (!gotTheLock) {
                     ENABLE_LIVE2D: config.enableLive2D ? '1' : '0',
                     FLASK_API_PORT: parseInt(config.apiPort) || 9000,
                     FLASK_API_HOST: config.apiHost || 'localhost',
-                    DESKTOP_HWND: config.desktopHwnd || 0
+                    DESKTOP_HWND: config.desktopHwnd || 0,
+                    AUTO_LOCATION: config.autoLocation ? '1' : '0',
+                    MANUAL_PROVINCE: config.manualLocation?.province || '',
+                    MANUAL_CITY: config.manualLocation?.city || '',
+                    MANUAL_COUNTY: config.manualLocation?.county || ''
                 };
 
                 fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
