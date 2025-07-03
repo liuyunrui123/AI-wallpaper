@@ -53,9 +53,15 @@ def validate_image_file(file_path):
         logging.error(f"validate_image_file [验证异常] {file_path}: {e}")
         return False
 
-def download_wallpaper(prompt, local_path, max_retries=3):
+def download_wallpaper(prompt, local_path, max_retries=3, width=1920, height=1080, model="flux", seed=2, Enhance=True, nologo=True):
+    '''
+    按1920*1080请求实际得到的宽高最大到1704*960
+    model: flux, kontext, turbo, gptimage
+    Enhance: 启用/禁用 Pollinations AI 提示增强器，它能通过优化你的文本提示，帮助你创造更出色的图像。
+    '''
     encoded_prompt = urllib.parse.quote(prompt)
-    image_url = f'https://image.pollinations.ai/prompt/{encoded_prompt}'
+    #  example: https://image.pollinations.ai/prompt/cyberpunk%20city%20at%20night?width=1920&height=1080&model=flux&seed=42&nologo=True&Enhance=True
+    image_url = f'https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model={model}&seed={seed}&nologo={nologo}&Enhance={Enhance}'
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
