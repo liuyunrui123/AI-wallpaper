@@ -31,9 +31,9 @@ def get_time_mood():
         return "sunset_start"
     elif sunset_hour <= current_hour < sunset_hour + 0.5:  # 日落时刻±30分钟
         return "sunset_peak"
-    elif sunset_hour + 0.5 <= current_hour < sunset_hour + 2:  # 日落后1.5小时内
+    elif sunset_hour + 0.5 <= current_hour < sunset_hour + 1:  # 日落后1小时内
         return "sunset_end"
-    elif sunset_hour + 2 <= current_hour < 24:
+    elif sunset_hour + 1 <= current_hour < 24:
         return "night"
     else:
         return "midnight"
@@ -54,6 +54,8 @@ def get_weather_key(weather: str) -> str:
 
 def make_draw_prompt(time_mood: str, weather_key: str) -> str:
     base_prompts = "4K wallpaper, beautiful landscape"
+    # 动漫画风
+    anime_style_prompts = ",studio ghibli-inspired magical realism"
     # 自然场景提示词字典
     scene_prompts_dict = {
         # 室内场景
@@ -97,7 +99,22 @@ def make_draw_prompt(time_mood: str, weather_key: str) -> str:
         # 道路景观
         'forest_path': "dirt path through dense woods, overgrown edges",
         'mountain_pass': "high altitude mountain passage, rocky outcrops",
-        'coastal_road': "winding road along seaside cliffs, ocean views"
+        'coastal_road': "winding road along seaside cliffs, ocean views",
+        # 二次元动漫画风
+        'enchanted_sakura_garden': "stone lanterns, cobbled paths, petals floating on streams" + anime_style_prompts,
+        'celestial_observatory': "starry dome, glowing astronomical instruments, floating golden orrery" + anime_style_prompts,
+        'floating_islands': "hovering landmasses, waterfalls into mist, vine bridges" + anime_style_prompts,
+        'magical_academy': "gothic spires with runes, floating books, stained glass patterns" + anime_style_prompts,
+        'crystal_caverns': "bioluminescent crystals, underground pools, glowing formations" + anime_style_prompts,
+        'autumn_samurai_village': "crimson maple leaves, thatched roofs, paper lanterns" + anime_style_prompts,
+        'steampunk_harbor': "brass airships, clockwork cranes, steam in golden sunset" + anime_style_prompts,
+        'enchanted_tea_house': "floating structure, lotus flowers, steaming teacups" + anime_style_prompts,
+        'starlight_festival': "floating paper lanterns, fireworks on water, festival stalls" + anime_style_prompts,
+        'fairy_forest': "glowing mushrooms, ancient trees, treehouse villages" + anime_style_prompts,
+        'underwater_temple': "coral pillars, sunlight beams, tropical fish through arches" + anime_style_prompts,
+        'moonlit_bamboo_grove': "silver light through bamboo, fox spirits, floating leaves" + anime_style_prompts,
+        'cloud_palace': "marble on clouds, rainbow bridges, dragons around jade pillars" + anime_style_prompts,
+        'winter_oni_village': "snow houses with demon masks, hot springs, orange lights in twilight" + anime_style_prompts,
     }
     # 从字典中使用随机数随机一个场景提示词
     # 随机获取一个key
