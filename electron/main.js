@@ -423,7 +423,7 @@ function createTray() {
             { type: 'separator' },
             { label: '🔄 重启程序', click: () => { restartApp(); } },
             { type: 'separator' },
-            { label: '❌ 退出壁纸', click: () => { safeQuit(); } }
+            { label: '❌ 退出壁纸', click: () => { logToAll('用户通过托盘退出壁纸', 'INFO', 'electron'); safeQuit(); } }
         ]);
         tray.setToolTip('AI Wallpaper');
         tray.setContextMenu(contextMenu);
@@ -451,7 +451,8 @@ if (!gotTheLock) {
             screen.on('display-added', setupAllWallpapers);
             screen.on('display-removed', setupAllWallpapers);
             screen.on('display-metrics-changed', setupAllWallpapers);
-            globalShortcut.register('Esc', () => {
+            globalShortcut.register('Ctrl+F4', () => {
+                logToAll('用户通过快捷键退出壁纸: Ctrl+F4', 'INFO', 'electron');
                 safeQuit();
             });
         } else {
@@ -527,6 +528,7 @@ if (!gotTheLock) {
         globalShortcut.unregisterAll();
     });
     app.on('window-all-closed', () => {
+        logToAll('window-all-closed事件触发，退出程序', 'INFO', 'electron');
         safeQuit();
         // 如果是macOS可以保留app.quit()，但safeQuit已包含app.quit()
     });
@@ -542,6 +544,7 @@ if (!gotTheLock) {
 
 // 支持前端通过IPC退出
 ipcMain.on('exit-wallpaper', () => {
+    logToAll('前端通过exit-wallpaper退出壁纸', 'INFO', 'electron');
     safeQuit();
 });
 
