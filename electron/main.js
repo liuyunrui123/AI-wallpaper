@@ -106,6 +106,9 @@ let mainWindow = null;
 let settingsWindow = null;
 let tray = null;
 
+// 用户主动退出标志，用于区分用户退出和系统强制退出
+let userInitiatedExit = false;
+
 // 多屏壁纸窗口管理
 const { screen } = require('electron');
 let wallpaperWindows = {};
@@ -131,6 +134,8 @@ function stopFlaskSync(callback) {
 }
 
 function safeQuit() {
+    userInitiatedExit = true; // 标记为用户主动退出
+    logToAll('用户主动退出程序', 'INFO', 'electron');
     stopFlaskSync(() => {
         app.quit();
     });
@@ -423,7 +428,10 @@ function createTray() {
             { type: 'separator' },
             { label: '🔄 重启程序', click: () => { restartApp(); } },
             { type: 'separator' },
-            { label: '❌ 退出壁纸', click: () => { logToAll('用户通过托盘退出壁纸', 'INFO', 'electron'); safeQuit(); } }
+            { label: '❌ 退出壁纸', click: () => {
+                logToAll('用户通过托盘退出壁纸', 'INFO', 'electron');
+                safeQuit();
+            } }
         ]);
         tray.setToolTip('AI Wallpaper');
         tray.setContextMenu(contextMenu);
@@ -528,11 +536,34 @@ if (!gotTheLock) {
         globalShortcut.unregisterAll();
     });
     app.on('window-all-closed', () => {
-        logToAll('window-all-closed事件触发，退出程序', 'INFO', 'electron');
-        safeQuit();
-        // 如果是macOS可以保留app.quit()，但safeQuit已包含app.quit()
+        if (userInitiatedExit) {
+            logToAll('window-all-closed事件触发，用户主动退出', 'INFO', 'electron');
+            safeQuit();
+        } else {
+            logToAll('window-all-closed事件触发，疑似系统强制关闭，拒绝退出', 'WARN', 'electron');
+            // 拒绝系统强制退出，重新创建窗口或保持程序运行
+            if (configManager.getWallpaperMode() === '1') {
+                // 壁纸模式：重新设置壁纸窗口
+                logToAll('重新设置壁纸窗口以抵抗系统强制关闭', 'INFO', 'electron');
+                setTimeout(() => {
+                    setupAllWallpapers();
+                }, 1000);
+            } else {
+                // 窗口模式：重新创建主窗口
+                logToAll('重新创建主窗口以抵抗系统强制关闭', 'INFO', 'electron');
+                setTimeout(() => {
+                    createWindow();
+                }, 1000);
+            }
+        }
     });
-    app.on('before-quit', () => {
+    app.on('before-quit', (event) => {
+        if (!userInitiatedExit) {
+            logToAll('before-quit事件触发，疑似系统强制退出，阻止退出', 'WARN', 'electron');
+            event.preventDefault(); // 阻止系统强制退出
+            return;
+        }
+        logToAll('before-quit事件触发，用户主动退出，允许退出', 'INFO', 'electron');
         stopFlaskSync();
     });
     app.on('activate', () => {

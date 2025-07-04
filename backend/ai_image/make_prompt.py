@@ -61,7 +61,6 @@ def make_draw_prompt(time_mood: str, weather_key: str) -> str:
         # 室内场景
         'indoor_library': "classic library setting, wooden bookshelves, reading nooks",
         'indoor_cafe': "cozy café interior, rustic furniture, warm ambiance",
-        'indoor_museum': "grand museum hall, art displays, high ceilings",
         'indoor': "cozy indoor setting, warm lights, comfortable",
         # 山地景观
         'mountain_valley': "deep mountain valley, rugged cliffs, untouched wilderness",
