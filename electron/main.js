@@ -309,19 +309,19 @@ function setAsWallpaper(win) {
     // execFile('python', [pythonScript, hwnd], { encoding: 'utf8' }, (err, stdout, stderr) => {
     execFile(exePath, [hwnd], { encoding: 'utf8' }, (err, stdout, stderr) => {
         if (err) {
-            logToAll('壁纸挂载失败: ' + err, 'ERROR', 'electron');
+            logToAll('壁纸挂载失败: ' + err, 'ERROR', 'wallpaper_hoster');
             console.error('壁纸挂载失败:', err);
             if (mainWindow && mainWindow.webContents) {
                 mainWindow.webContents.send('show-error', '壁纸挂载失败: ' + err.message);
             }
         }
         if (stdout) {
-            logToAll('Python WallpaperHoster 输出: ' + stdout, 'INFO', 'electron');
-            console.log('Python WallpaperHoster 输出:', stdout);
+            logToAll('WallpaperHoster 输出: ' + stdout.trim(), 'INFO', 'wallpaper_hoster');
+            console.log('WallpaperHoster 输出:', stdout);
         }
         if (stderr) {
-            logToAll('Python WallpaperHoster 错误: ' + stderr, 'ERROR', 'electron');
-            console.error('Python WallpaperHoster 错误:', stderr);
+            logToAll('WallpaperHoster 错误: ' + stderr.trim(), 'ERROR', 'wallpaper_hoster');
+            console.error('WallpaperHoster 错误:', stderr);
         }
     });
 }
@@ -346,8 +346,28 @@ function setAsWallpaperMulti(win, display) {
         logToAll('Python wallpaper hoster script not found: ' + exePath, 'ERROR', 'electron');
         return;
     }
-    // spawn('python', [pythonScript, hwnd, x, y, width, height], { detached: true, stdio: 'ignore' });
-    spawn(exePath, [hwnd, x, y, width, height], { detached: true, stdio: 'ignore' });
+
+    // 使用 execFile 确保能完整收集短暂运行程序的输出
+    const { execFile } = require('child_process');
+    // execFile('python', [pythonScript, hwnd], { encoding: 'utf8' }, (err, stdout, stderr) => {
+    execFile(exePath, [hwnd, x, y, width, height], { encoding: 'utf8' }, (err, stdout, stderr) => {
+        if (err) {
+            logToAll('壁纸挂载失败: ' + err, 'ERROR', 'electron');
+            console.error('壁纸挂载失败:', err);
+            if (mainWindow && mainWindow.webContents) {
+                mainWindow.webContents.send('show-error', '壁纸挂载失败: ' + err.message);
+            }
+        }
+        if (stdout) {
+            logToAll('Python WallpaperHoster 输出: ' + stdout, 'INFO', 'WallpaperHoster');
+            console.log('Python WallpaperHoster 输出:', stdout);
+        }
+        if (stderr) {
+            logToAll('Python WallpaperHoster 错误: ' + stderr, 'ERROR', 'WallpaperHoster');
+            console.error('Python WallpaperHoster 错误:', stderr);
+        }
+    });
+
 }
 
 function createWallpaperWindow(display) {
@@ -414,14 +434,13 @@ function createWindow() {
     const { screen } = require('electron');
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
-    const isWallpaperMode = configManager.getWallpaperMode() === '1';
-    console.log('windows size:', width, 'x', height, 'wallpaper_mode:', isWallpaperMode);
+    console.log('windows size:', width, 'x', height, 'wallpaper_mode: false (window mode)');
     mainWindow = new BrowserWindow({
         width,
         height,
-        frame: !isWallpaperMode,
-        transparent: isWallpaperMode,
-        skipTaskbar: isWallpaperMode,
+        frame: true,           // 窗口模式：显示边框
+        transparent: false,    // 窗口模式：不透明
+        skipTaskbar: false,    // 窗口模式：显示在任务栏
         show: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -438,21 +457,11 @@ function createWindow() {
     }
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
+        // 窗口模式：无需壁纸挂载相关设置
         // if (process.env.NODE_ENV === 'development') {
         //     //最小化窗口
         //     mainWindow.minimize();
         // }
-        // 以下代码不会生效，因为这个函数是只有窗口模式才会进入
-        if (isWallpaperMode) {
-            setTimeout(() => {
-                setAsWallpaper(mainWindow);
-                // 挂载后设置为点击穿透、不可聚焦、非置顶
-                mainWindow.maximize();
-                mainWindow.setIgnoreMouseEvents(true, { forward: true });
-                mainWindow.setAlwaysOnTop(false);
-                mainWindow.setFocusable(false);
-            }, 50); // 延迟确保窗口已显示
-        }
     });
     mainWindow.on('closed', () => {
         mainWindow = null;

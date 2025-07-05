@@ -10,9 +10,21 @@ import sys
 import ctypes
 from ctypes import wintypes, byref, c_char_p, c_int, c_uint, c_void_p, POINTER
 import logging
+import io
+
+# 设置标准输出和错误输出的编码为UTF-8
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.stderr.encoding.lower() != 'utf-8':
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # 设置日志
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+# logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s',
+    stream=sys.stdout
+)
 logger = logging.getLogger(__name__)
 
 # Windows API常量

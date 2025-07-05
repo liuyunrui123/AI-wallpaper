@@ -329,7 +329,7 @@ def update_cache():
         # 使用手动设置的位置
         manual_loc = location_config['manual_location']
         if manual_loc['province'] or manual_loc['city'] or manual_loc['county']:
-            logging.info(f"[location] 使用手动设置的位置: {manual_loc}")
+            # logging.info(f"[location] 使用手动设置的位置: {manual_loc}")
             LOCATION_CACHE = manual_loc
         else:
             logging.warning(f"[location] 手动位置为空，尝试自动获取")
