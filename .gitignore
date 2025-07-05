@@ -22,3 +22,6 @@ wallpaper_hoster/WallpaperHosterLively/bin
 wallpaper_hoster/WallpaperHosterLively/obj
 wallpaper_hoster/WallpaperHosterLively/out
 AI-wallpaper.sln
+wallpaper_hoster/python/build
+wallpaper_hoster/python/dist
+wallpaper_hoster/python/.venv

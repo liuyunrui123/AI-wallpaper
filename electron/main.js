@@ -258,18 +258,55 @@ function getNativeHWND(win) {
 
 function setAsWallpaper(win) {
     const hwnd = getNativeHWND(win);
-    const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'WallpaperHosterLively', 'out', 'WallpaperHosterLively.exe');
+
+    // ===== 原C#版本接口（保留但注释） =====
+    // const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'WallpaperHosterLively', 'out', 'WallpaperHosterLively.exe');
+    // logToAll(`setAsWallpaper: hwnd=${hwnd}, exePath=${exePath}`, 'INFO', 'electron');
+    // console.log('set window as wallpaper, hwnd:', hwnd, 'hwnd_hex:', '0x' + hwnd.toString(16), 'exe:', exePath);
+    // if (!fs.existsSync(exePath)) {
+    //     logToAll('wallpaper host lively not found: ' + exePath, 'ERROR', 'electron');
+    //     console.error('wallpaper host lively not fount:', exePath);
+    //     if (mainWindow && mainWindow.webContents) {
+    //         mainWindow.webContents.send('show-error', '壁纸挂载失败：未找到挂载工具！');
+    //     }
+    //     return;
+    // }
+    // const { execFile } = require('child_process');
+    // execFile(exePath, [hwnd], { encoding: 'utf8' }, (err, stdout, stderr) => {
+    //     if (err) {
+    //         logToAll('壁纸挂载失败: ' + err, 'ERROR', 'electron');
+    //         console.error('壁纸挂载失败:', err);
+    //         if (mainWindow && mainWindow.webContents) {
+    //             mainWindow.webContents.send('show-error', '壁纸挂载失败: ' + err.message);
+    //         }
+    //     }
+    //     if (stdout) {
+    //         logToAll('WallpaperHosterLively 输出: ' + stdout, 'INFO', 'electron');
+    //         console.log('WallpaperHosterLively 输出:', stdout);
+    //     }
+    //     if (stderr) {
+    //         logToAll('WallpaperHosterLively 错误: ' + stderr, 'ERROR', 'electron');
+    //         console.error('WallpaperHosterLively 错误:', stderr);
+    //     }
+    // });
+
+    // ===== 新Python版本接口 =====
+    const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'python', 'wallpaper_hoster.exe');
+    // TODO: 日志输出在这里不生效,需要查明原因
     logToAll(`setAsWallpaper: hwnd=${hwnd}, exePath=${exePath}`, 'INFO', 'electron');
-    console.log('set window as wallpaper, hwnd:', hwnd, 'hwnd_hex:', '0x' + hwnd.toString(16), 'exe:', exePath);
+    console.log('set window as wallpaper, hwnd:', hwnd, 'hwnd_hex:', '0x' + hwnd.toString(16), 'exePath:', exePath);
+
     if (!fs.existsSync(exePath)) {
-        logToAll('wallpaper host lively not found: ' + exePath, 'ERROR', 'electron');
-        console.error('wallpaper host lively not fount:', exePath);
+        logToAll('Python wallpaper hoster script not found: ' + exePath, 'ERROR', 'electron');
+        console.error('Python wallpaper hoster script not found:', exePath);
         if (mainWindow && mainWindow.webContents) {
-            mainWindow.webContents.send('show-error', '壁纸挂载失败：未找到挂载工具！');
+            mainWindow.webContents.send('show-error', '壁纸挂载失败：未找到Python挂载工具！');
         }
         return;
     }
+
     const { execFile } = require('child_process');
+    // execFile('python', [pythonScript, hwnd], { encoding: 'utf8' }, (err, stdout, stderr) => {
     execFile(exePath, [hwnd], { encoding: 'utf8' }, (err, stdout, stderr) => {
         if (err) {
             logToAll('壁纸挂载失败: ' + err, 'ERROR', 'electron');
@@ -279,12 +316,12 @@ function setAsWallpaper(win) {
             }
         }
         if (stdout) {
-            logToAll('WallpaperHosterLively 输出: ' + stdout, 'INFO', 'electron');
-            console.log('WallpaperHosterLively 输出:', stdout);
+            logToAll('Python WallpaperHoster 输出: ' + stdout, 'INFO', 'electron');
+            console.log('Python WallpaperHoster 输出:', stdout);
         }
         if (stderr) {
-            logToAll('WallpaperHosterLively 错误: ' + stderr, 'ERROR', 'electron');
-            console.error('WallpaperHosterLively 错误:', stderr);
+            logToAll('Python WallpaperHoster 错误: ' + stderr, 'ERROR', 'electron');
+            console.error('Python WallpaperHoster 错误:', stderr);
         }
     });
 }
@@ -292,12 +329,24 @@ function setAsWallpaper(win) {
 // 多屏壁纸窗口管理
 function setAsWallpaperMulti(win, display) {
     const hwnd = getNativeHWND(win);
-    const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'WallpaperHosterLively', 'out', 'WallpaperHosterLively.exe');
+    const { x, y, width, height } = display.bounds;
+
+    // ===== 原C#版本接口（保留但注释） =====
+    // const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'WallpaperHosterLively', 'out', 'WallpaperHosterLively.exe');
+    // if (!fs.existsExists(exePath)) {
+    //     logToAll('wallpaper host lively not found: ' + exePath, 'ERROR', 'electron');
+    //     return;
+    // }
+    // spawn(exePath, [hwnd, x, y, width, height], { detached: true, stdio: 'ignore' });
+
+    // ===== 新Python版本接口 =====
+    const exePath = path.join(process.resourcesPath, 'wallpaper_hoster', 'python', 'wallpaper_hoster.exe');
+    logToAll(`setAsWallpaperMulti: hwnd=${hwnd}, exePath=${exePath}`, 'INFO', 'electron');
     if (!fs.existsSync(exePath)) {
-        logToAll('wallpaper host lively not found: ' + exePath, 'ERROR', 'electron');
+        logToAll('Python wallpaper hoster script not found: ' + exePath, 'ERROR', 'electron');
         return;
     }
-    const { x, y, width, height } = display.bounds;
+    // spawn('python', [pythonScript, hwnd, x, y, width, height], { detached: true, stdio: 'ignore' });
     spawn(exePath, [hwnd, x, y, width, height], { detached: true, stdio: 'ignore' });
 }
 
@@ -393,6 +442,7 @@ function createWindow() {
         //     //最小化窗口
         //     mainWindow.minimize();
         // }
+        // 以下代码不会生效，因为这个函数是只有窗口模式才会进入
         if (isWallpaperMode) {
             setTimeout(() => {
                 setAsWallpaper(mainWindow);

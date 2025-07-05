@@ -51,11 +51,8 @@
         "to": "backend/static/wallpapers/default.jpg"
       },
       {
-        "from": "wallpaper_hoster/WallpaperHosterLively/out",
-        "to": "wallpaper_hoster/WallpaperHosterLively/out",
-        "filter": [
-          "!*.pdb"
-        ]
+        "from": "wallpaper_hoster/python/dist/wallpaper_hoster",
+        "to": "wallpaper_hoster/python"
       },
       {
         "from": "src/assets/icon.ico",

@@ -28,8 +28,7 @@ AI_Wallpaper
 │   ├── main.js              # Electron主进程入口，负责窗口、托盘、后端进程管理等
 │   ├── preload.js           # 渲染进程预加载脚本，暴露API给前端
 │   ├── log.js               # 日志
-│   ├── wallpaper_config.json# 运行时配置（端口、模式等）
-│   └── wallpaper_hoster/    # C#壁纸挂载工具源码及编译产物
+│   └──wallpaper_config.json# 运行时配置（端口、模式等）
 ├── src
 │   ├── App.vue              # Vue根组件
 │   ├── main.ts              # Vue入口
@@ -47,14 +46,15 @@ AI_Wallpaper
 │   │   └── wallpapers/      # 壁纸图片缓存
 │   ├── ai_image/            # 壁纸生成
 │   └── weather/             # 天气API
+├── wallpaper_hoster/        # 壁纸挂载工具（C#和Python两种实现）
 ├── package.json             # 前端依赖与构建配置
 ├── tsconfig.json            # TypeScript配置
 └── README.md                # 项目说明
 ```
 
 ## 安装与运行
-运行需要的依赖：
-安装 .NET 9.0: [Download the .NET runtime](https://aka.ms/dotnet-core-applaunch?missing_runtime=true&arch=x64&rid=win-x64&os=win10&apphost_version=9.0.6)
+~~运行需要的依赖：~~
+~~安装 .NET 9.0: [Download the .NET runtime](https://aka.ms/dotnet-core-applaunch?missing_runtime=true&arch=x64&rid=win-x64&os=win10&apphost_version=9.0.6)~~
 
 从发布页面下载[release](https://github.com/liuyunrui123/AI_Wallpaper/releases)版本, 启动后会在托盘栏显示一个图标，右键可以退出。
 
@@ -91,7 +91,15 @@ AI_Wallpaper
    ```
    > 运行后会在 backend 目录下生成 app.exe，无需本地 Python 环境即可被 Electron 自动启动。
 
-5. 编译C#工具
+5. 准备壁纸挂载工具
+
+   **方式一：使用Python版本（推荐，无需.NET依赖）**
+   ```
+   cd wallpaper_hoster/python
+   ./build.bat
+   ```
+
+   **方式二：使用C#版本（需要.NET 9.0）**
    ```
    cd wallpaper_hoster
    ./build.bat
@@ -119,23 +127,42 @@ AI_Wallpaper
    ```
    注意：`npm run electron:build`需要管理员身份运行，否则报错。
 
-### 动态壁纸桌面挂载工具（C#）
-本项目支持将 Electron 窗口嵌入到 Windows 桌面壁纸层，实现动态壁纸效果。实现方式为：Electron 主进程调用 C# 小工具，将窗口句柄挂载到桌面 WorkerW 层。
-挂载工具源码位置: `wallpaper_hoster/WallpaperHosterLively/WallpaperHosterLively.cs`
-- 编译方法（.NET 9.0） 
-   安装 .NET 9.0 SDK（如未安装）。
-   打开命令行，执行以下命令：
-   ```
-   cd wallpaper_hoster
-   ./build.bat
-   ```
-   编译完成后，WallpaperHosterLively.exe 位于 `WallpaperHosterLively/out/` 目录下。
+### 动态壁纸桌面挂载工具
+本项目支持将 Electron 窗口嵌入到 Windows 桌面壁纸层，实现动态壁纸效果。项目提供了两种实现方式：
 
+#### Python版本（推荐）
+- **优势**：无需.NET依赖，文件体积小，易于维护
+- **位置**：`wallpaper_hoster/python/wallpaper_hoster.py`
+- **技术**：使用Python ctypes库调用Windows API
+- **创建虚拟环境**
+   ```
+   uv venv --python 3.7
+   # 激活虚拟环境
+   .venv\Scripts\activate
+   uv pip install -r requirements.txt
+   ```
+- **构建**：
+  ```bash
+  cd wallpaper_hoster/python
+  ./build.bat
+  ```
 
-- Electron主进程集成说明  
-   生产模式下，Electron 主进程会自动调用该 exe，将窗口嵌入桌面。
-   开发模式下为普通窗口，无需挂载。
-   切换方式：设置环境变量 WALLPAPER_MODE=1 即可启用壁纸模式。
+#### C#版本（传统）
+- **优势**：启动速度快，性能优秀
+- **位置**：`wallpaper_hoster/WallpaperHosterLively/WallpaperHosterLively.cs`
+- **技术**：使用.NET 9.0和P/Invoke调用Windows API
+- **构建**：需要安装.NET 9.0 SDK
+  ```bash
+  cd wallpaper_hoster
+  ./build.bat
+  ```
+
+#### Electron主进程集成
+- **当前使用**：Python版本（默认）
+- **切换方式**：修改`electron/main.js`中的注释即可切换实现
+- **运行模式**：
+  - 生产模式：自动调用挂载工具，将窗口嵌入桌面
+  - 开发模式：普通窗口，无需挂载
 
 
 ## 贡献

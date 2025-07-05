@@ -420,22 +420,6 @@ def wallpaper_monitor():
             if allow_on_the_hour:
                 logging.info(f"整点触发壁纸更新: {now}")
                 make_new_wallpaper(time_mood, weather_key)
-                # last_time_mood = time_mood
-                # last_weather = weather_key
-                # last_trigger_time = now_ts
-                # logging.info(f"[wallpaper_monitor] 检测到壁纸条件变化、首次生成或整点触发: {time_mood}, {weather_key}")
-                # prompt = make_draw_prompt(time_mood, weather_key)
-                # CACHE['prompt'] = prompt
-                # filename = get_wallpaper_filename_by_prompts(prompt)
-                # local_path = get_wallpaper_path(filename)
-                # if os.path.exists(local_path):
-                #     logging.info(f"[wallpaper_monitor] 已存在壁纸文件: {local_path}")
-                #     socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
-                #     time.sleep(check_interval)
-                #     continue
-                # ret = download_wallpaper(prompt, local_path, max_retries=3)
-                # if ret == True:
-                #     socketio.emit('refresh_wallpaper', {'time_mood': time_mood, 'weather': weather_key})
 
             time.sleep(check_interval)  # 每分钟检测一次
     except Exception as e:

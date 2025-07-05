@@ -33,6 +33,16 @@ function logToAll(msg, level = 'INFO', module = 'electron') {
     rotateLogIfNeeded();
     const line = `[${getLocalTimeString()}] [${module}] [${level}] ${msg}\n`;
     fs.appendFileSync(allLogPath, line, 'utf8');
+
+    // 同时输出到控制台
+    // const consoleMsg = `[${module}] [${level}] ${msg}`;
+    // if (level === 'ERROR') {
+    //     console.error(consoleMsg);
+    // } else if (level === 'WARN') {
+    //     console.warn(consoleMsg);
+    // } else {
+    //     console.log(consoleMsg);
+    // }
 }
 
 module.exports = { logToAll, logDir, allLogPath };
