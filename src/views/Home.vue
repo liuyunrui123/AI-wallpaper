@@ -132,20 +132,39 @@ export default defineComponent({
     const refreshWallpaper = async () => {
       try {
         frontendLog('开始强制刷新壁纸...');
-        const res = await axios.post(`${API_BASE}/refresh-wallpaper`);
+        const res = await axios.post(`${API_BASE}/refresh-wallpaper`, {}, {
+          timeout: 60000 // 增加超时时间到60秒，因为AI图片生成可能需要较长时间
+        });
         console.log('强制刷新壁纸API返回:', res.data);
         // 只有res.data中存在'success'key为true才是成功
         if (!res.data.success) {
           console.error('强制刷新壁纸失败:', res.data.error);
-          frontendLog('强制刷新壁纸失败: ' + res.data.error);
+          frontendLog('强制刷新壁纸失败: ' + res.data.error, 'WARN');
           return;
         }
         // 刷新成功后，重新获取壁纸数据
         await fetchWallpaper();
         frontendLog('强制刷新壁纸成功: ' + JSON.stringify(res.data));
-      } catch (error) {
+      } catch (error: any) {
         console.error('强制刷新壁纸失败:', error);
-        frontendLog('强制刷新壁纸失败: ' + error);
+
+        // 区分不同类型的错误
+        let errorMsg = '未知错误';
+        if (error.response) {
+          // 服务器返回了错误状态码
+          errorMsg = `服务器错误 ${error.response.status}: ${error.response.data?.error || error.response.statusText}`;
+        } else if (error.request) {
+          // 请求发出但没有收到响应
+          errorMsg = '网络请求超时或无响应';
+        } else {
+          // 其他错误
+          errorMsg = error.message || '请求配置错误';
+        }
+
+        frontendLog(`强制刷新壁纸失败: ${errorMsg}`, 'ERROR');
+
+        // 不要因为壁纸刷新失败就断开socket连接
+        // socket连接应该保持稳定，独立于API请求的成功与否
       }
     };
 
@@ -272,15 +291,39 @@ export default defineComponent({
 
       fetchWallpaper();
       // 连接socket.io
-      socket = io(SOCKET_BASE);
+      socket = io(SOCKET_BASE, {
+        autoConnect: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        timeout: 20000
+      });
+
       socket.on('refresh_wallpaper', (data: any) => {
         frontendLog('收到后端刷新壁纸事件: ' + JSON.stringify(data));
         fetchWallpaper();
       });
+
       socket.on('connect', () => {
         frontendLog('socket.io已连接');
         // 通知后端前端已准备好接收推送
         socket.emit('ready_for_push');
+      });
+
+      socket.on('disconnect', (reason: string) => {
+        frontendLog(`socket.io断开连接: ${reason}`, 'WARN');
+      });
+
+      socket.on('connect_error', (error: any) => {
+        frontendLog(`socket.io连接错误: ${error.message}`, 'ERROR');
+      });
+
+      socket.on('reconnect', (attemptNumber: number) => {
+        frontendLog(`socket.io重连成功 (尝试次数: ${attemptNumber})`, 'INFO');
+      });
+
+      socket.on('reconnect_error', (error: any) => {
+        frontendLog(`socket.io重连失败: ${error.message}`, 'ERROR');
       });
 
       // 初始化Live2D（如果启用）

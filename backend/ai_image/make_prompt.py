@@ -110,7 +110,7 @@ def make_draw_prompt(time_mood: str, weather_key: str) -> str:
         'enchanted_tea_house': "floating structure, lotus flowers, steaming teacups" + anime_style_prompts,
         'starlight_festival': "floating paper lanterns, fireworks on water, festival stalls" + anime_style_prompts,
         'fairy_forest': "glowing mushrooms, ancient trees, treehouse villages" + anime_style_prompts,
-        'underwater_temple': "coral pillars, sunlight beams, tropical fish through arches" + anime_style_prompts,
+        'underwater_temple': "coral pillars, tropical fish through arches" + anime_style_prompts,
         'moonlit_bamboo_grove': "silver light through bamboo, fox spirits, floating leaves" + anime_style_prompts,
         'cloud_palace': "marble on clouds, rainbow bridges, dragons around jade pillars" + anime_style_prompts,
         'winter_oni_village': "snow houses with demon masks, hot springs, orange lights in twilight" + anime_style_prompts,
