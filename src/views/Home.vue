@@ -6,6 +6,7 @@
       :title="''"
       :description="''"
     />
+    <TimeDisplay v-if="wallpaperUrl" />
     <div v-if="wallpaperUrl" class="info-panel">
       <div class="info-card">
         <div class="info-row"><span class="info-label">🌤️ 天气：</span>{{ weather }}</div>
@@ -31,6 +32,7 @@
 import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import WallpaperDisplay from '../components/WallpaperDisplay.vue';
+import TimeDisplay from '../components/TimeDisplay.vue';
 import { io } from 'socket.io-client';
 import { createLive2DManager, Live2DManager } from '../utils/live2d-manager';
 
@@ -68,7 +70,8 @@ if (typeof window !== 'undefined' && window.electronAPI) {
 export default defineComponent({
   name: 'Home',
   components: {
-    WallpaperDisplay
+    WallpaperDisplay,
+    TimeDisplay
   },
   setup() {
     const wallpaperUrl = ref('');
