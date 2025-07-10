@@ -49,7 +49,7 @@ export default defineComponent({
       hour: '00',
       minute: '00',
       second: '00',
-      period: 'AM'
+      period: '上午'
     });
 
     const formattedDate = ref({
@@ -72,7 +72,7 @@ export default defineComponent({
         hour: hour12.toString().padStart(2, '0'),
         minute: minute.toString().padStart(2, '0'),
         second: second.toString().padStart(2, '0'),
-        period: hour24 >= 12 ? 'PM' : 'AM'
+        period: hour24 >= 12 ? '下午' : '上午'
       };
 
       // 格式化日期 - 中文版本
