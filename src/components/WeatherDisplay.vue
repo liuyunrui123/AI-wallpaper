@@ -31,7 +31,7 @@
       <!-- 位置信息 -->
       <div class="location-info">
         <div class="location-icon">📍</div>
-        <div class="location-text">{{ province }}{{ city }}{{ county }}</div>
+        <div class="location-text">{{ getLocationDisplay() }}</div>
       </div>
     </div>
   </div>
@@ -85,6 +85,17 @@ export default defineComponent({
 
       // 如果找不到对应的图标，返回默认的多云图标
       return weatherIconMap[weather] || '🌤️';
+    },
+    getLocationDisplay(): string {
+      const { province, city, county } = this;
+
+      // 如果province与city一致，说明是直辖市，省略province显示
+      if (province === city) {
+        return `${city}${county}`;
+      }
+
+      // 普通省市区显示
+      return `${province}${city}${county}`;
     }
   }
 });
