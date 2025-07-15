@@ -122,13 +122,11 @@ export default defineComponent({
   min-width: 220px;
   color: #ffffff;
   user-select: text;
-  transition: all 0.3s ease;
+  cursor: default;
+  pointer-events: none;
 }
 
-.weather-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-}
+
 
 .weather-main {
   display: flex;
@@ -162,12 +160,9 @@ export default defineComponent({
   color: #64b5f6;
   font-family: 'Segoe UI', 'Arial', monospace;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  transition: color 0.2s ease;
 }
 
-.temperature-display:hover {
-  color: #90caf9;
-}
+
 
 .weather-details {
   display: flex;
@@ -182,10 +177,7 @@ export default defineComponent({
   gap: 12px;
 }
 
-.detail-item:hover .detail-value {
-  color: #64b5f6;
-  transition: color 0.2s ease;
-}
+
 
 .detail-icon {
   font-size: 20px;
@@ -212,7 +204,6 @@ export default defineComponent({
   color: #ffffff;
   font-weight: 500;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  transition: color 0.2s ease;
 }
 
 .location-info {
