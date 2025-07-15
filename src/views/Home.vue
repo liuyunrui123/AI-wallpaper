@@ -7,15 +7,16 @@
       :description="''"
     />
     <TimeDisplay v-if="wallpaperUrl" />
-    <div v-if="wallpaperUrl" class="info-panel">
-      <div class="info-card">
-        <div class="info-row"><span class="info-label">🌤️ 天气：</span>{{ weather }}</div>
-        <div class="info-row"><span class="info-label">🌡️ 温度：</span>{{ temperature }}</div>
-        <div class="info-row"><span class="info-label">💧 湿度：</span>{{ humidity }}</div>
-        <div class="info-row"><span class="info-label">💨 风力：</span>{{ windPower }}</div>
-        <div class="info-row"><span class="info-label">📍 位置：</span>{{ province }}{{ city }}{{ county }}</div>
-      </div>
-    </div>
+    <WeatherDisplay
+      v-if="wallpaperUrl"
+      :weather="weather"
+      :temperature="temperature"
+      :humidity="humidity"
+      :windPower="windPower"
+      :province="province"
+      :city="city"
+      :county="county"
+    />
     <div v-if="wallpaperUrl" class="prompt-panel">
       <div class="prompt-desc">Prompt：{{ prompt }}</div>
       <div class="scene-desc">场景：{{ timeMood }} {{ weather }} </div>
@@ -33,6 +34,7 @@ import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import WallpaperDisplay from '../components/WallpaperDisplay.vue';
 import TimeDisplay from '../components/TimeDisplay.vue';
+import WeatherDisplay from '../components/WeatherDisplay.vue';
 import { io } from 'socket.io-client';
 import { createLive2DManager, Live2DManager } from '../utils/live2d-manager';
 
@@ -71,7 +73,8 @@ export default defineComponent({
   name: 'Home',
   components: {
     WallpaperDisplay,
-    TimeDisplay
+    TimeDisplay,
+    WeatherDisplay
   },
   setup() {
     const wallpaperUrl = ref('');
@@ -366,37 +369,13 @@ export default defineComponent({
   z-index: 20;
   pointer-events: none;
 }
-.info-panel {
-  position: absolute;
-  right: 40px;
-  top: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  z-index: 10;
-}
-.info-card {
-  background: rgba(0,0,0,0.45);
-  color: #fff;
-  padding: 18px 32px;
-  border-radius: 14px;
-  font-size: 18px;
-  min-width: 220px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-  user-select: text;
-  text-align: left;
-}
-.info-row {
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-.info-label {
-  font-weight: bold;
-  margin-right: 8px;
-  margin-left: 0;
-}
+
+
+
+
+
+
+
 .prompt-panel {
   position: absolute;
   right: 40px;
@@ -457,4 +436,6 @@ export default defineComponent({
 .exit-btn:hover {
   background: #e74c3c;
 }
+
+
 </style>

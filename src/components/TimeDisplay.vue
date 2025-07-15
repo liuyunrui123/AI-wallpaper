@@ -23,13 +23,7 @@
         </div>
       </div>
       
-      <!-- 装饰性元素 -->
-      <div class="time-decoration">
-        <div class="decoration-line"></div>
-        <div class="decoration-dots">
-          <span class="dot" v-for="i in 3" :key="i"></span>
-        </div>
-      </div>
+
     </div>
   </div>
 </template>
@@ -121,7 +115,7 @@ export default defineComponent({
 .time-display {
   position: fixed;
   right: 40px;
-  top: 260px;
+  top: 340px;
   z-index: 15;
   user-select: none;
 }
@@ -221,40 +215,13 @@ export default defineComponent({
   font-weight: 400;
 }
 
-.time-decoration {
-  position: absolute;
-  bottom: 12px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
-.decoration-line {
-  width: 30px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #64b5f6, transparent);
-  border-radius: 1px;
-}
-
-.decoration-dots {
-  display: flex;
-  gap: 4px;
-}
-
-.decoration-dots .dot {
-  width: 4px;
-  height: 4px;
-  background: #64b5f6;
-  border-radius: 50%;
-  opacity: 0.6;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .time-display {
     right: 20px;
-    top: 200px;
+    top: 300px;
   }
 
   .time-container {
