@@ -4,12 +4,49 @@ import logging
 import requests
 import os
 import time
+import hashlib
+import re
 try:
     from PIL import Image
 except ImportError:
     Image = None
 
 app = Flask(__name__)
+
+def generate_safe_filename(prompt, max_length=100):
+    """
+    根据提示词生成安全的文件名
+
+    Args:
+        prompt: 原始提示词
+        max_length: 文件名最大长度（不包括扩展名）
+
+    Returns:
+        安全的文件名（不包括扩展名）
+    """
+    # 移除或替换不安全的字符
+    safe_chars = re.sub(r'[<>:"/\\|?*]', '_', prompt)
+    safe_chars = re.sub(r'[,.]', '_', safe_chars)
+    safe_chars = re.sub(r'\s+', '_', safe_chars)  # 多个空格替换为单个下划线
+    safe_chars = re.sub(r'_+', '_', safe_chars)   # 多个下划线替换为单个下划线
+    safe_chars = safe_chars.strip('_')            # 移除首尾下划线
+
+    # 如果文件名太长，截取前部分并添加哈希值
+    if len(safe_chars) > max_length:
+        # 生成提示词的哈希值作为唯一标识
+        hash_value = hashlib.md5(prompt.encode('utf-8')).hexdigest()[:8]
+        # 截取前部分，留出空间给哈希值
+        truncated = safe_chars[:max_length-9]  # 9 = 1个下划线 + 8位哈希
+        safe_filename = f"{truncated}_{hash_value}"
+    else:
+        safe_filename = safe_chars
+
+    # 确保文件名不为空
+    if not safe_filename:
+        hash_value = hashlib.md5(prompt.encode('utf-8')).hexdigest()[:12]
+        safe_filename = f"wallpaper_{hash_value}"
+
+    return safe_filename
 
 def validate_image_file(file_path):
     """验证图片文件的完整性"""
@@ -53,7 +90,7 @@ def validate_image_file(file_path):
         logging.error(f"validate_image_file [验证异常] {file_path}: {e}")
         return False
 
-def download_wallpaper(prompt, local_path, max_retries=3, width=1920, height=1080, model="flux", seed=2, Enhance=True, nologo=True):
+def download_wallpaper(prompt, local_path, max_retries=3, width=1920, height=1080, model="flux", seed=2, Enhance=False, nologo=True):
     '''
     按1920*1080请求实际得到的宽高最大到1704*960
     model: flux, kontext, turbo, gptimage
@@ -69,7 +106,7 @@ def download_wallpaper(prompt, local_path, max_retries=3, width=1920, height=108
 
     for attempt in range(max_retries):
         try:
-            resp = requests.get(image_url, headers=headers, timeout=15)
+            resp = requests.get(image_url, headers=headers, timeout=20)
             if resp.status_code == 200:
                 # 检查响应内容是否为空
                 if not resp.content or len(resp.content) == 0:

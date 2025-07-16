@@ -1,5 +1,10 @@
 import random
+import logging
 from datetime import datetime
+try:
+    from ai_image.llm_api import generate_drawing_prompt
+except ImportError:
+    from llm_api import generate_drawing_prompt
 
 # 简单按季节模拟日落时间（实际应用需接入天文API）
 def get_sunset_hour():
@@ -52,7 +57,8 @@ def get_weather_key(weather: str) -> str:
     else:
         return '晴'
 
-def make_draw_prompt(time_mood: str, weather_key: str) -> str:
+def make_draw_prompt_rule_based(time_mood: str, weather_key: str) -> str:
+    """基于规则的绘画提示词生成函数（作为降级方案）"""
     base_prompts = "4K wallpaper, beautiful landscape"
     # 动漫画风
     anime_style_prompts = ",studio ghibli-inspired magical realism"
@@ -207,3 +213,134 @@ def make_draw_prompt(time_mood: str, weather_key: str) -> str:
     }
     out_prompts = f"{random_scene_prompts}, {time_prompts[time_mood]}, {weather_modifiers[weather_key]}, {base_prompts}"
     return out_prompts
+
+def get_current_time_info() -> dict:
+    """获取当前时间信息"""
+    now = datetime.now()
+    return {
+        'month': now.month,
+        'day': now.day,
+        'hour': now.hour,
+        'minute': now.minute
+    }
+
+def create_ai_prompt_for_drawing(weather_key: str) -> str:
+    """为AI生成创建绘画提示词的指令"""
+    time_info = get_current_time_info()
+
+    weather_descriptions = {
+        '晴': "晴天",
+        '雨': "雨天",
+        '多云': "多云",
+        '阴': "阴天",
+        '雾': "雾天",
+        '雪': "雪天"
+    }
+
+    weather_desc = weather_descriptions.get(weather_key, "晴天")
+
+    # 随机选择场景类型
+    scene_types = [
+        # 自然风景
+        "山川景观（高山、峡谷、山谷）",
+        "河流景观（河流、瀑布、溪流）",
+        "海洋景观（海岸、海滩、悬崖）",
+        "森林景观（密林、树林、竹林）",
+        "草原景观（草地、平原、牧场）",
+        "湖泊景观（湖泊、池塘、湿地）",
+        "沙漠景观（沙丘、绿洲、戈壁）",
+        "田园景观（农田、乡村、花园）",
+
+        # 吉卜力风格二次元场景
+        "吉卜力风格樱花庭院（传统石灯笼、青苔石径、花瓣轻舞飞扬）",
+        "吉卜力风格天空之城（漂浮岛屿、古老机械、云海环绕）",
+        "吉卜力风格魔法森林（参天古树、神秘光斑、精灵踪迹）",
+        "吉卜力风格乡村小镇（欧式小屋、石板路、温暖灯光）",
+        "吉卜力风格海边悬崖（草原小屋、海风吹拂、无垠海景）",
+        "吉卜力风格山谷农场（梯田、风车、田园诗意）",
+        "吉卜力风格秋日枫林（红叶满山、小径蜿蜒、诗意氛围）",
+        "吉卜力风格湖心小岛（宁静湖面、小木屋、倒影如镜）",
+        "吉卜力风格花海草原（五彩花田、微风轻抚、远山如黛）",
+        "吉卜力风格古老城堡（藤蔓缠绕、时光沉淀、神秘优雅）",
+        "吉卜力风格竹林小径（翠竹摇曳、光影斑驳、禅意悠远）",
+        "吉卜力风格云端花园（天空花园、彩云飘渺、梦幻仙境）"
+    ]
+
+    selected_scene = random.choice(scene_types)
+
+    # 判断是否为吉卜力风格场景
+    is_ghibli_scene = "吉卜力" in selected_scene
+
+    # 根据时间判断光照状态
+    hour = time_info['hour']
+    month = time_info['month']
+
+    # 不同季节的日出日落时间
+    if 6 <= month <= 8:  # 夏季
+        sunrise_hour, sunset_hour = 5, 19
+    elif 3 <= month <= 5 or 9 <= month <= 11:  # 春秋季
+        sunrise_hour, sunset_hour = 6, 18
+    else:  # 冬季
+        sunrise_hour, sunset_hour = 7, 17
+
+    # 确定光照状态和约束
+    if hour < sunrise_hour or hour > sunset_hour + 1:
+        lighting_constraint = f"""严格时间约束：现在是{hour}点，属于夜晚时间！
+- 绝对禁止词汇：sunlight, sun, sunny, solar, sunshine, daylight, bright light
+- 必须使用词汇：moonlight, starlight, artificial lighting, night lighting, dim lighting
+- 如果违反此约束，生成结果将被视为错误"""
+    elif sunrise_hour <= hour <= sunrise_hour + 1:
+        lighting_constraint = f"时间约束：现在是{hour}点，属于日出时分，可以有sunrise、dawn light、early morning sun等初升阳光"
+    elif sunset_hour - 1 <= hour <= sunset_hour:
+        lighting_constraint = f"时间约束：现在是{hour}点，属于日落时分，可以有sunset、dusk light、golden hour等夕阳光线"
+    else:
+        lighting_constraint = f"时间约束：现在是{hour}点，属于白天时间，可以有sunlight、bright daylight等阳光"
+
+    prompt = f"""请根据以下信息生成专业的英文AI绘画提示词，只输出英文提示词，不要输出任何解释：
+
+当前时间：{time_info['month']}月{time_info['day']}日{time_info['hour']}点{time_info['minute']}分
+当前天气：{weather_desc}
+场景类型：{selected_scene}
+
+{lighting_constraint}
+
+要求：
+1. 根据当前月份判断季节特征
+2. 根据当前时间判断准确的光照情况（考虑季节影响的日出日落时间）
+3. 根据天气情况调整光照描述（如雨天不能有强烈阳光，阴天光线暗淡等）
+4. 生成指定场景类型的绘画提示词
+5. 包含场景特色、光照、色调、氛围等关键词
+6. 确保场景描述与时间天气逻辑一致
+{"7. 如果是吉卜力风格场景，请添加studio ghibli style, anime style, magical realism, soft lighting, detailed animation等关键词" if is_ghibli_scene else ""}
+{"8. 吉卜力场景应该包含温暖色调、柔和光线、细腻质感、诗意氛围等元素" if is_ghibli_scene else ""}"""
+
+    return prompt
+
+def make_draw_prompt(time_mood: str, weather_key: str) -> str:
+    """
+    生成绘画提示词的主函数
+    优先使用AI生成（基于真实时间），失败时降级到基于规则的生成
+
+    Args:
+        time_mood: 时间情绪 (保留兼容性，但AI生成时会忽略)
+        weather_key: 天气关键词 (晴, 雨, 多云, etc.)
+
+    Returns:
+        英文绘画提示词
+    """
+    # 创建AI生成指令
+    ai_instruction = create_ai_prompt_for_drawing(weather_key)
+
+    try:
+        # 优先尝试AI生成（让AI自己判断时间和天气）
+        ai_prompt = generate_drawing_prompt(ai_instruction, model="auto")
+        time_info = get_current_time_info()
+        logging.info(f"AI生成成功: {time_info['month']}月{time_info['day']}日{time_info['hour']}点{weather_key}天 -> {ai_prompt[:50]}...")
+        return ai_prompt
+    except Exception as e:
+        # AI生成失败，降级到基于规则的生成
+        logging.warning(f"AI生成失败: {e}")
+        logging.info("降级到规则生成")
+        rule_based_prompt = make_draw_prompt_rule_based(time_mood, weather_key)
+        logging.info(f"规则生成完成: {rule_based_prompt[:50]}...")
+        return rule_based_prompt

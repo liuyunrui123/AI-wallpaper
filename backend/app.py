@@ -90,8 +90,10 @@ last_trigger_time = 0  # 记录上一次壁纸更新的时间戳
 #     return f"{time_mood}_{weather_key}.jpg"
 
 def get_wallpaper_filename_by_prompts(prompt: str) -> str:
-    prompt_filename = prompt.strip()
-    return f"{prompt_filename}.jpg"
+    # 导入安全文件名生成函数
+    from ai_image.ai_image_api import generate_safe_filename
+    safe_filename = generate_safe_filename(prompt.strip(), max_length=80)
+    return f"{safe_filename}.jpg"
 
 def get_wallpaper_path(filename) -> str:
     # filename = get_wallpaper_filename(time_mood, weather_key)
@@ -323,7 +325,7 @@ def update_cache():
                     LOCATION_CACHE = manual_loc
             # 否则保持原有的LOCATION_CACHE不变
         else:
-            logging.info(f"[location] 自动获取位置成功: {ret_location}")
+            # logging.info(f"[location] 自动获取位置成功: {ret_location}")
             LOCATION_CACHE = ret_location
     else:
         # 使用手动设置的位置
