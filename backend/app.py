@@ -15,7 +15,7 @@ import datetime
 # import gevent
 # print("gevent version:", gevent.__version__)
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 # 设置标准输出和错误输出的编码为UTF-8
 if sys.stdout.encoding.lower() != 'utf-8':
