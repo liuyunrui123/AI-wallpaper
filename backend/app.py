@@ -406,12 +406,6 @@ def wallpaper_monitor():
             time_mood = CACHE['time_mood']
             weather_key = CACHE['weather_key']
 
-            now = datetime.datetime.now()
-            is_on_the_hour = (now.minute == 0)
-            now_ts = now.timestamp()
-            # 距离上次触发超过10分钟才允许整点触发
-            allow_on_the_hour = is_on_the_hour and (now_ts - last_trigger_time > 600)
-
             # 检测到条件变化或首次启动时生成，或整点强制触发（需10分钟间隔）
             if time_mood != last_time_mood:
                 logging.info(f"检测到时间变化: {last_time_mood} -> {time_mood}")
@@ -419,6 +413,12 @@ def wallpaper_monitor():
             if weather_key != last_weather:
                 logging.info(f"检测到天气变化: {last_weather} -> {weather_key}")
                 make_new_wallpaper(time_mood, weather_key)
+            
+            now = datetime.datetime.now()
+            is_on_the_hour = (now.minute == 0)
+            now_ts = now.timestamp()
+            # 距离上次触发超过10分钟才允许整点触发
+            allow_on_the_hour = is_on_the_hour and (now_ts - last_trigger_time > 600)
             if allow_on_the_hour:
                 logging.info(f"整点触发壁纸更新: {now}")
                 make_new_wallpaper(time_mood, weather_key)
