@@ -1,4 +1,5 @@
 @echo off
+chcp 65001
 echo Python壁纸挂载工具构建脚本
 echo ============================
 
